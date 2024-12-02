@@ -1,0 +1,43 @@
+audit-trail:
+  enabled: true
+  fullnameOverride: audit-trail
+
+authentication:
+  enabled: true
+  fullnameOverride: authentication
+
+central-monitoring:
+  enabled: true
+  fullnameOverride: central-monitoring
+
+patient:
+  enabled: true
+  fullnameOverride: patient
+
+realtime:
+  enabled: true
+  fullnameOverride: realtime
+
+sdc:
+  enabled: true
+  fullnameOverride: sdc
+
+web:
+  enabled: true
+  fullnameOverride: web
+
+mirth:
+  enabled: true
+  fullnameOverride: mirth
+
+rkc:
+  enabled: true
+  fullnameOverride: rkc
+
+config:
+  enabled: true
+  fullnameOverride: config
+
+emulator:
+  enabled: false
+  fullnameOverride: emulator

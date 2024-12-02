@@ -1,0 +1,65 @@
+prometheus:
+  prometheusSpec:
+    retention: 7d
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          resources:
+            requests:
+              storage: 50Gi
+prometheusOperator:
+  serviceMonitor:
+    selfMonitor: false
+grafana:
+  image:
+    tag: "11.1.4"
+  initChownData:
+    image:
+      tag: latest
+  persistence:
+    type: StatefulSet
+    enabled: true
+    size: 1Gi
+  grafana.ini:
+    auth.basic:
+      password_policy: true
+    security:
+      cookie_secure: true
+      cookie_http_only: true
+      cookie_samesite: lax
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - mon.${INGRESS_DOMAIN}
+  serviceMonitor:
+    enabled: true
+    labels:
+      release: prometheus
+prometheus-node-exporter:
+  tolerations:
+    - key: CriticalAddonsOnly
+      operator: Exists
+nodeExporter:
+  operatingSystems:
+    darwin:
+      enabled: false
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeProxy:
+  enabled: false
+kubeScheduler:
+  enabled: false
+defaultRules:
+  rules:
+    etcd: false
+    kubeControllerManager: false
+    kubeProxy: false
+  disabled:
+    InfoInhibitor: true
+    TargetDown: true
+    KubeSchedulerDown: true
+    KubeHpaMaxedOut: true
+    Watchdog: true

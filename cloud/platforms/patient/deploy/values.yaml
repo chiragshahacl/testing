@@ -1,0 +1,137 @@
+replicaCount: 2
+image:
+  repository: 104472814609.dkr.ecr.us-east-2.amazonaws.com/patient
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+  automountServiceAccountToken: false
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+securityContext:
+  allowPrivilegeEscalation: false
+  seccompProfile:
+    type: RuntimeDefault
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 80
+  internalPort: 8080
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: gateway.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+
+resources:
+  requests:
+    cpu: 300m
+    memory: 256Mi
+  limits:
+    memory: 1024Mi
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 30
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 15
+  successThreshold: 3
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 2
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+app:
+  config:
+    GUNICORN_WORKERS: "2"
+    SENTRY_DSN: ""
+    SENTRY_TRACE_SAMPLE_RATE: "0.1"
+    SENTRY_PROFILES_SAMPLE_RATE: "0.1"
+    ENVIRONMENT: "prod"
+    SIBEL_VERSION: "0.0.1"
+    APPLICATION_PORT: "8080"
+    BASE_PATH: "/patient"
+    DB_HOST: "postgres"
+    DB_PORT: "5432"
+    DB_NAME: "patient"
+    DB_USERNAME: "postgres"
+    MAX_VITAL_REGISTRY_IN_DB: "10000"
+    PUBLISHER_BACKEND: "app.common.event_sourcing.publisher.KafkaPublisher"
+    PUBLISHER_AUDIT_TRAIL_STREAM_NAME: "events-patient"
+    KAFKA_CA_FILE_PATH: /kafka-cluster-certs/ca.crt
+    KAFKA_CERT_FILE_PATH: /kafka-user-certs/user.crt
+    KAFKA_KEY_FILE_PATH: /kafka-user-certs/user.key
+    KAFKA_HOST: "kafka-cluster-kafka-bootstrap"
+    KAFKA_PORT: "9093"
+    REDIS_HOST: "redis"
+    REDIS_PORT: "6379"
+    REDIS_USERNAME: "default"
+    REDIS_CACHE_TTL: "86400"
+    CACHE_ENABLED: "TRUE"
+    PROJECT_NAME: "patient"
+    EVENTS_ALERT_TOPIC: "alerts"
+    EVENTS_SDC_TOPIC: "events-sdc"
+    EVENTS_DEVICE_TOPIC: "events-device"
+    KAFKA_MSG_SINK_LIMIT: "1000"
+    KAFKA_HEALTHCHECK_TOPIC: "healthcheck"
+    DEVICE_APIS_ENABLED: "true"
+  extraEnvs:
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: postgres-creds
+          key: superUserPassword
+    - name: DB_ENCRYPTION_KEY
+      valueFrom:
+        secretKeyRef:
+          name: postgres-creds
+          key: crypto
+    - name: JWT_VERIFYING_KEY
+      valueFrom:
+        configMapKeyRef:
+          name: rsa-public-key
+          key: PUBLIC_RS256_KEY
+    - name: KAFKA_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: kafka-user
+          key: user.password
+    - name: REDIS_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: redis-creds
+          key: REDIS_PASSWORD

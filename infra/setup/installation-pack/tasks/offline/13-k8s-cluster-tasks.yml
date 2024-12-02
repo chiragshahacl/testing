@@ -1,0 +1,22 @@
+# https://taskfile.dev
+version: '3'
+
+includes:
+  common-k8s-cluster-deploy:
+    taskfile: ../common/k8s-cluster-tasks.yml
+    vars:
+      INSTALLATION_TYPE: offline
+
+tasks:
+
+  rke2-deploy:
+    desc: Deploy K8S cluster
+    internal: true
+    cmds:
+      - task: common-k8s-cluster-deploy:deploy
+
+  deploy:
+    desc: Deploy K8S cluster
+    internal: true
+    cmds:
+      - task: rke2-deploy

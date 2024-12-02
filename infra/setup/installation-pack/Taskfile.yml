@@ -1,0 +1,111 @@
+version: '3'
+
+dotenv: ['/tmp/.env']
+
+includes:
+  # tasks for online installation
+  load-balancer-online: ./tasks/online/01-load-balancer-tasks.yml
+  k8s-cluster-online: ./tasks/online/02-k8s-cluster-tasks.yml
+  k8s-infra-online: ./tasks/online/03-k8s-infra-tasks.yml
+  central-hub-online: ./tasks/online/04-central-hub-tasks.yml
+
+  # tasks for offline installation
+  docker-install-offline: ./tasks/offline/11-docker-install-tasks.yml
+  load-balancer-offline: ./tasks/offline/12-load-balancer-tasks.yml
+  k8s-cluster-offline: ./tasks/offline/13-k8s-cluster-tasks.yml
+  k8s-infra-offline: ./tasks/offline/14-k8s-infra-tasks.yml
+  central-hub-offline: ./tasks/offline/15-central-hub-tasks.yml
+
+  # common tasks
+  update-central-hub-release: ./tasks/common/central-hub-update-release-tasks.yml
+  update-central-hub-certificate: ./tasks/common/central-hub-update-certificate-tasks.yml
+  storage: ./tasks/common/storage-tasks.yml
+
+tasks:
+
+  ## Online installation
+  01-load-balancer-online:
+    desc: Load balancer setup
+    cmds:
+      - task: load-balancer-online:deploy
+
+  02-storage-online:
+    desc: Storage operations
+    cmds:
+      - task: storage:deploy
+
+  03-k8s-cluster-online:
+    desc: K8S cluster setup
+    cmds:
+      - task: k8s-cluster-online:deploy
+
+  04-k8s-infra-online:
+    desc: K8S infra setup
+    cmds:
+      - task: k8s-infra-online:deploy
+
+  05-central-hub-online:
+    desc: Central Hub setup
+    cmds:
+      - task: central-hub-online:deploy
+
+  10-install-all-online:
+    desc: All components setup
+    cmds:
+      - task: 01-load-balancer-online
+      - task: 02-storage-online
+      - task: 03-k8s-cluster-online
+      - task: 04-k8s-infra-online
+      - task: 05-central-hub-online
+
+  ## Offline installation
+  11-docker-install-offline:
+    desc: Docker setup (no internet access)
+    cmds:
+      - task: docker-install-offline:deploy
+
+  12-load-balancer-offline:
+    desc: Load balancer setup (no internet access)
+    cmds:
+      - task: load-balancer-offline:deploy
+
+  13-storage-offline:
+    desc: Storage operations (no internet access)
+    cmds:
+      - task: storage:deploy
+
+  14-k8s-cluster-offline:
+    desc: K8S cluster setup (no internet access)
+    cmds:
+      - task: k8s-cluster-offline:deploy
+
+  15-k8s-infra-offline:
+    desc: K8S infra setup (no internet access)
+    cmds:
+      - task: k8s-infra-offline:deploy
+
+  16-central-hub-offline:
+    desc: Central Hub setup (no internet access)
+    cmds:
+      - task: central-hub-offline:deploy
+
+  20-install-all-offline:
+    desc: All components setup (no internet access)
+    cmds:
+      - task: 11-docker-install-offline
+      - task: 12-load-balancer-offline
+      - task: 13-storage-offline
+      - task: 14-k8s-cluster-offline
+      - task: 15-k8s-infra-offline
+      - task: 16-central-hub-offline
+
+  ## Common tasks
+  30-update-central-hub-release:
+    desc: Update Central Hub release
+    cmds:
+      - task: update-central-hub-release:deploy
+
+  40-update-central-hub-certificate:
+    desc: Update Central Hub certificate
+    cmds:
+      - task: update-central-hub-certificate:deploy

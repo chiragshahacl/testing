@@ -1,0 +1,120 @@
+# https://taskfile.dev
+version: '3'
+
+vars:
+  CENTRAL_HUB_REPO: sibel.health
+  MANIFESTS_DIR: '{{.USER_WORKING_DIR}}/central-hub'
+  K8S_CLUSTER_INVENTORY: '{{.USER_WORKING_DIR}}/ansible/k8s-inventory.ini'
+  INFRA_DIR: '{{.USER_WORKING_DIR}}/k8s-infra'
+  CREDS_DIR: '/tmp/creds'
+
+tasks:
+
+  rke2-cluster-check:
+    desc: Check Kubernetes kubeconfig file
+    internal: true
+    cmds:
+      - mkdir -p ~/.kube/ ; cp -rp {{.CREDS_DIR}}/kubeconfig ~/.kube/config || cp -rp /tmp/kubeconfig ~/.kube/config
+      - kubectl get no
+      - mkdir -p {{.MANIFESTS_DIR}}/manifests
+
+  ansible-inventory:
+    desc: Prepare Ansible inventory
+    internal: true
+    dir: '{{.USER_WORKING_DIR}}'
+    cmds:
+      - |
+        export LB_INGRESS_IP="{{.LB_INGRESS_IP}}";
+        export K8S_CLUSTER_CONTROL_HOSTS="{{.K8S_CLUSTER_CONTROL_HOSTS}}";
+        export K8S_CLUSTER_IPS="{{.K8S_CLUSTER_IPS}}";
+        python3 scripts/inventory.py
+      - cat {{.K8S_CLUSTER_INVENTORY}}
+    status:
+      - test -f {{.K8S_CLUSTER_INVENTORY}}
+
+  central-hub-artifacts:
+    desc: Upload central-hub image artifacts
+    internal: true
+    dir: '{{.USER_WORKING_DIR}}'
+    cmds:
+      - |
+        ansible-playbook -i {{.K8S_CLUSTER_INVENTORY}} --user {{.SSH_USER}} \
+        --extra-vars "central_hub_release={{.CENTRAL_HUB_RELEASE_TAG}}" \
+        --become --become-user=root ansible/central-hub-update-playbook.yml \
+        --private-key=/tmp/{{.PRIVATE_KEY_NAME}} \
+        --ssh-common-args='-o StrictHostKeyChecking=no'
+
+  kafka:
+    desc: Update Kafka users and topics
+    internal: true
+    cmds:
+      - echo "Create Kafka topics"
+      - kubectl apply -f {{.INFRA_DIR}}/kafka-topics.yaml
+      - echo "Create Kafka users"
+      - kubectl apply -f {{.INFRA_DIR}}/kafka-user-apps.yaml
+
+  ski-chart-key:
+    desc: Update secret for ski-chart key
+    internal: true
+    cmds:
+      - >
+        kubectl create secret generic -n central-hub scichart-server-key \
+          --from-literal=SCI_CHART_SERVER_KEY="${SCI_CHART_SERVER_KEY}" \
+          --dry-run=client -oyaml > {{.MANIFESTS_DIR}}/manifests/scichart-server-key.yaml
+      - kubectl apply -f {{.MANIFESTS_DIR}}/manifests/scichart-server-key.yaml
+
+  placeholders-substitution:
+    desc: Prepare manifests
+    internal: true
+    cmds:
+      - |
+        export INGRESS_DOMAIN="{{.LB_INGRESS_DOMAIN}}";
+        export ADMIN_EMAIL="{{.ADMIN_EMAIL}}";
+        export TECHICAL_USER_MAIL="{{.TECHICAL_USER_MAIL}}";
+        envsubst < {{.MANIFESTS_DIR}}/chart/charts/web/values.yaml > {{.MANIFESTS_DIR}}/chart/charts/web/values.yaml.tmp && \
+        mv {{.MANIFESTS_DIR}}/chart/charts/web/values.yaml.tmp {{.MANIFESTS_DIR}}/chart/charts/web/values.yaml;
+        envsubst < {{.MANIFESTS_DIR}}/chart/charts/authentication/values.yaml > {{.MANIFESTS_DIR}}/chart/charts/authentication/values.yaml.tmp && \
+        mv {{.MANIFESTS_DIR}}/chart/charts/authentication/values.yaml.tmp {{.MANIFESTS_DIR}}/chart/charts/authentication/values.yaml;
+        envsubst < {{.MANIFESTS_DIR}}/chart/charts/realtime/values.yaml > {{.MANIFESTS_DIR}}/chart/charts/realtime/values.yaml.tmp && \
+        mv {{.MANIFESTS_DIR}}/chart/charts/realtime/values.yaml.tmp {{.MANIFESTS_DIR}}/chart/charts/realtime/values.yaml;
+        envsubst < {{.MANIFESTS_DIR}}/chart/charts/central-monitoring/values.yaml > {{.MANIFESTS_DIR}}/chart/charts/central-monitoring/values.yaml.tmp && \
+        mv {{.MANIFESTS_DIR}}/chart/charts/central-monitoring/values.yaml.tmp {{.MANIFESTS_DIR}}/chart/charts/central-monitoring/values.yaml;
+        envsubst < {{.MANIFESTS_DIR}}/chart/charts/mirth/values.yaml > {{.MANIFESTS_DIR}}/chart/charts/mirth/values.yaml.tmp && \
+        mv {{.MANIFESTS_DIR}}/chart/charts/mirth/values.yaml.tmp {{.MANIFESTS_DIR}}/chart/charts/mirth/values.yaml;
+
+  central-hub:
+    desc: Deploy helm charts
+    internal: true
+    cmds:
+      - |
+        helm upgrade -i central-hub {{.MANIFESTS_DIR}}/chart --namespace central-hub --create-namespace \
+        --set audit-trail.image.repository={{.CENTRAL_HUB_REPO}}/audit-trail \
+        --set audit-trail.image.tag={{.CENTRAL_HUB_RELEASE_TAG}} \
+        --set authentication.image.repository={{.CENTRAL_HUB_REPO}}/authentication \
+        --set authentication.image.tag={{.CENTRAL_HUB_RELEASE_TAG}} \
+        --set central-monitoring.image.repository={{.CENTRAL_HUB_REPO}}/central-monitoring \
+        --set central-monitoring.image.tag={{.CENTRAL_HUB_RELEASE_TAG}} \
+        --set patient.image.repository={{.CENTRAL_HUB_REPO}}/patient \
+        --set patient.image.tag={{.CENTRAL_HUB_RELEASE_TAG}} \
+        --set realtime.image.repository={{.CENTRAL_HUB_REPO}}/realtime \
+        --set realtime.image.tag={{.CENTRAL_HUB_RELEASE_TAG}} \
+        --set sdc.image.repository={{.CENTRAL_HUB_REPO}}/sdc \
+        --set sdc.image.tag={{.CENTRAL_HUB_RELEASE_TAG}} \
+        --set web.image.repository={{.CENTRAL_HUB_REPO}}/web \
+        --set web.image.tag={{.CENTRAL_HUB_RELEASE_TAG}} \
+        --set mirth.image.repository={{.CENTRAL_HUB_REPO}}/mirth \
+        --set mirth.image.tag={{.CENTRAL_HUB_RELEASE_TAG}} \
+        --set rkc.image.repository={{.CENTRAL_HUB_REPO}}/rkc \
+        --set rkc.image.tag={{.CENTRAL_HUB_RELEASE_TAG}}
+
+  deploy:
+    desc: Update central-hub
+    internal: true
+    cmds:
+      - task: rke2-cluster-check
+      - task: ansible-inventory
+      - task: central-hub-artifacts
+      - task: kafka
+      - task: ski-chart-key
+      - task: placeholders-substitution
+      - task: central-hub

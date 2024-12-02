@@ -1,0 +1,72 @@
+
+# https://taskfile.dev
+version: '3'
+
+vars:
+  MANIFESTS_DIR: '{{.USER_WORKING_DIR}}/central-hub'
+  INFRA_DIR: '{{.USER_WORKING_DIR}}/k8s-infra'
+  CREDS_DIR: '/tmp/creds'
+
+tasks:
+
+  rke2-cluster-check:
+    desc: Check Kubernetes kubeconfig file
+    internal: true
+    cmds:
+      - mkdir -p ~/.kube/ ; cp -rp {{.CREDS_DIR}}/kubeconfig ~/.kube/config || cp -rp /tmp/kubeconfig ~/.kube/config
+      - kubectl get no
+
+  update-loadbalancer-certificate:
+    desc: Setup ingress load balancer
+    internal: true
+    cmds:
+      - >
+        if [[ -f "/tmp/{{.LB_INGRESS_CERT_PRIVATE_KEY}}" && -f "/tmp/{{.LB_INGRESS_CERT_PUBLIC_KEY}}" ]]; then
+          rm -f /tmp/tls.pem
+          for cert in /tmp/{{.LB_INGRESS_CERT_PRIVATE_KEY}} /tmp/{{.LB_INGRESS_CERT_PUBLIC_KEY}}; do
+              cat "$cert" >> /tmp/tls.pem
+              echo "" >> /tmp/tls.pem
+          done
+        fi
+      - scp -i /tmp/{{.PRIVATE_KEY_NAME}} -o StrictHostKeyChecking=no /tmp/tls.pem {{.SSH_USER}}@{{.LB_INGRESS_IP}}:haproxy/certs/tls.pem
+      - ssh -i /tmp/{{.PRIVATE_KEY_NAME}} -o StrictHostKeyChecking=no {{.SSH_USER}}@{{.LB_INGRESS_IP}} "sudo service docker restart"
+      - ssh -i /tmp/{{.PRIVATE_KEY_NAME}} -o StrictHostKeyChecking=no {{.SSH_USER}}@{{.LB_INGRESS_IP}} "sudo docker compose --file haproxy/docker-compose.yaml down"
+      - ssh -i /tmp/{{.PRIVATE_KEY_NAME}} -o StrictHostKeyChecking=no {{.SSH_USER}}@{{.LB_INGRESS_IP}} "sudo docker compose --file haproxy/docker-compose.yaml up -d"
+
+  update-ingress-certificate:
+    desc: Update ingress certificate
+    internal: true
+    cmds:
+      - >
+        if [[ -f "/tmp/{{.LB_INGRESS_CERT_PRIVATE_KEY}}" && -f "/tmp/{{.LB_INGRESS_CERT_PUBLIC_KEY}}" ]]; then
+          kubectl create secret tls ingress-tls \
+          --namespace ingress-nginx \
+          --key="/tmp/{{.LB_INGRESS_CERT_PRIVATE_KEY}}" \
+          --cert="/tmp/{{.LB_INGRESS_CERT_PUBLIC_KEY}}" \
+          -o yaml --dry-run=client > {{.INFRA_DIR}}/ingress-certificate.yaml;
+          kubectl apply -f {{.INFRA_DIR}}/ingress-certificate.yaml
+        fi
+
+  update-sdc-certificate:
+    desc: Update secret with certificates for SDC
+    internal: true
+    cmds:
+      - mkdir -p {{.MANIFESTS_DIR}}/manifests
+      - >
+          kubectl create secret generic -n central-hub sdc-certs \
+            --from-file=CRYPTO_USER_KEY=/tmp/consumerLeaf1.key \
+            --from-file=CRYPTO_USER_CERT=/tmp/consumerLeaf1.crt \
+            --from-file=CRYPTO_CA_CERT=/tmp/intermediateCA.crt \
+            --from-literal=CRYPTO_USER_KEY_PASSWORD="{{.SDC_CERT_PASSWORD}}" \
+            --dry-run=client -oyaml > {{.MANIFESTS_DIR}}/manifests/sdc-cert.yaml
+      - kubectl apply -f {{.MANIFESTS_DIR}}/manifests/sdc-cert.yaml
+      - kubectl rollout restart deploy sdc-leader sdc-follower -n central-hub
+
+  deploy:
+    desc: Update TLS certificate
+    internal: true
+    cmds:
+      - task: rke2-cluster-check
+      - task: update-loadbalancer-certificate
+      - task: update-ingress-certificate
+      - task: update-sdc-certificate

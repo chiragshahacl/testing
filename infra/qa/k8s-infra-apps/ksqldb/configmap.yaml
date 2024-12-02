@@ -1,0 +1,14 @@
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: cp-ksql-server
+  labels:
+    app: cp-ksql-server
+data:
+  KSQL_BOOTSTRAP_SERVERS: kafka-cluster-kafka-bootstrap:9099
+  KSQL_KSQL_SERVICE_ID: ksqldb
+  KSQL_HEAP_OPTS: "-Xms512M -Xmx512M"
+  KSQL_LISTENERS: "http://0.0.0.0:8088"
+  KSQL_SASL_MECHANISM: SCRAM-SHA-512
+  KSQL_SECURITY_PROTOCOL: SASL_PLAINTEXT

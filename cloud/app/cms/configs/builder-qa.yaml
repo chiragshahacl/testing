@@ -1,0 +1,8 @@
+appId: central.monitoring.desktop.qa
+productName: CMSKiosk-qa
+directories:
+  output: dist/qa
+
+extraMetadata:
+  env: qa
+  APP_URL: https://cms.qa.tucana.sibel.health

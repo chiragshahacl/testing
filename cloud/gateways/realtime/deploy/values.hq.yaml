@@ -1,0 +1,28 @@
+image:
+  # dev registry for now
+  repository: 104472814609.dkr.ecr.us-east-2.amazonaws.com/realtime
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets:
+  - name: ecr
+
+ingress:
+  enabled: true
+  className: "nginx"
+  hosts:
+    - host: api.hq.tucana.sibel.health
+      paths:
+        - path: /realtime
+          pathType: ImplementationSpecific
+  tls:
+    - secretName: star-hq-tucana-sibel-health-tls
+      hosts:
+        - api.hq.tucana.sibel.health
+
+app:
+  config:
+    ENVIRONMENT: "hq"
+    SENTRY_DSN: "https://f77b021213b34351966ffa54622c201a@o4504039729135616.ingest.sentry.io/4504951836704768"
+    WEB_BASE_URL: "https://api.hq.tucana.sibel.health/web"
+    CORS_ORIGINS: "https://cms.hq.tucana.sibel.health,http://localhost:3000"

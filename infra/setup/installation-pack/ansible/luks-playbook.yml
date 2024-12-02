@@ -1,0 +1,14 @@
+- name: Luks
+  hosts: workers
+  become: true
+  gather_facts: true
+  roles:
+    - role: "/install/storage/luks"
+  vars:
+    luks_default_state: opened
+    # A list of devices to encrypt.
+    luks_devices:
+      - device: ${DEVICE_NAME}
+        name: cryptdata
+        keyfile: ${KEYFILE}
+        type: luks2

@@ -1,0 +1,40 @@
+# https://taskfile.dev
+version: '3'
+
+vars:
+  DOCKER_INVENTORY: '{{.USER_WORKING_DIR}}/ansible/docker-inventory.ini'
+  K8S_CLUSTER_INVENTORY: '{{.USER_WORKING_DIR}}/ansible/k8s-inventory.ini'
+
+tasks:
+
+  ansible-inventory:
+    desc: Prepare Ansible inventory
+    internal: true
+    cmds:
+      - |
+        export LB_INGRESS_IP="{{.LB_INGRESS_IP}}";
+        export K8S_CLUSTER_CONTROL_HOSTS="{{.K8S_CLUSTER_CONTROL_HOSTS}}";
+        export K8S_CLUSTER_IPS="{{.K8S_CLUSTER_IPS}}";
+        python3 scripts/inventory.py
+      - cat {{.K8S_CLUSTER_INVENTORY}}
+      - cat {{.DOCKER_INVENTORY}}
+    status:
+      - test -f {{.K8S_CLUSTER_INVENTORY}}
+      - test -f {{.DOCKER_INVENTORY}}
+
+  docker-packages:
+    desc: Install Docker packages on LB and Registry machines
+    internal: true
+    cmds:
+      - |
+        ansible-playbook -i {{.DOCKER_INVENTORY}} --user {{.SSH_USER}} \
+        --become --become-user=root ansible/docker-install-playbook.yml \
+        --private-key=/tmp/{{.PRIVATE_KEY_NAME}} \
+        --ssh-common-args='-o StrictHostKeyChecking=no'
+
+  deploy:
+    desc: Generate Ansible inventory and setup Docker packages
+    internal: true
+    cmds:
+      - task: ansible-inventory
+      - task: docker-packages

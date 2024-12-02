@@ -1,0 +1,35 @@
+rke2_version: v1.29.0+rke2r1
+rke2_server_node_taints:
+  - 'CriticalAddonsOnly=true:NoExecute'
+# Uncomment the line below and specify the DNS name of the loadbalancer VM in case HA control plane for Kubernetes will be used
+# rke2_additional_sans:
+#   - "LB_K8S_API_FQDN"
+#   - "LB_INGRESS_IP"
+rke2_server_options:
+  - "audit-policy-file: /etc/rancher/rke2/audit-policy.yaml"
+rke2_custom_manifests:
+  - /install/k8s-infra/rke2-cilium-config.yaml
+rke2_cni:
+  - cilium
+rke2_disable:
+  - rke2-ingress-nginx
+  - rke2-canal
+rke2_artifact:
+  - sha256sum-{{ rke2_architecture }}.txt
+  - rke2.linux-{{ rke2_architecture }}.tar.gz
+  - rke2-images.linux-{{ rke2_architecture }}.tar.zst
+rke2_download_kubeconf: true
+rke2_download_kubeconf_file_name: kubeconfig
+rke2_download_kubeconf_path: /tmp/creds
+rke2_central_hub_tarballs_sourcepath: /install/images
+rke2_central_hub_tarballs:
+  - audit-trail-{{ central_hub_release }}.tar.gz
+  - authentication-{{ central_hub_release }}.tar.gz
+  - central-monitoring-{{ central_hub_release }}.tar.gz
+  - patient-{{ central_hub_release }}.tar.gz
+  - realtime-{{ central_hub_release }}.tar.gz
+  - sdc-{{ central_hub_release }}.tar.gz
+  - web-{{ central_hub_release }}.tar.gz
+  - mirth-{{ central_hub_release }}.tar.gz
+  - rkc-{{ central_hub_release }}.tar.gz
+  - config-{{ central_hub_release }}.tar.gz

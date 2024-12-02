@@ -1,0 +1,134 @@
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    strimzi.io/cluster: kafka-cluster
+  name: waveform
+  namespace: tucana
+spec:
+  topicName: waveform
+  config:
+    retention.ms: 86400000  # 24h
+  partitions: 12
+  replicas: 1
+
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    strimzi.io/cluster: kafka-cluster
+  name: vitals
+  namespace: tucana
+spec:
+  topicName: vitals
+  config:
+    retention.ms: 172800000  # 48h
+  partitions: 12
+  replicas: 1
+
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    strimzi.io/cluster: kafka-cluster
+  name: events-patient
+  namespace: tucana
+spec:
+  topicName: events-patient
+  config:
+    retention.ms: 604800000  # 7d
+  partitions: 12
+  replicas: 1
+
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    strimzi.io/cluster: kafka-cluster
+  name: events-device
+  namespace: tucana
+spec:
+  topicName: events-device
+  config:
+    retention.ms: 604800000  # 7d
+  partitions: 12
+  replicas: 1
+
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    strimzi.io/cluster: kafka-cluster
+  name: events-authentication
+  namespace: tucana
+spec:
+  topicName: events-authentication
+  config:
+    retention.ms: 604800000  # 7d
+  partitions: 12
+  replicas: 1
+
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    strimzi.io/cluster: kafka-cluster
+  name: alerts
+  namespace: tucana
+spec:
+  topicName: alerts
+  config:
+    retention.ms: 259200000  # 72h
+  partitions: 12
+  replicas: 1
+
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    strimzi.io/cluster: kafka-cluster
+  name: technical-alerts
+  namespace: tucana
+spec:
+  topicName: technical-alerts
+  config:
+    retention.ms: 259200000  # 72h
+  partitions: 12
+  replicas: 1
+
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    strimzi.io/cluster: kafka-cluster
+  name: events-sdc
+  namespace: tucana
+spec:
+  topicName: events-sdc
+  config:
+    retention.ms: 604800000  # 7d
+  partitions: 12
+  replicas: 1
+
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    strimzi.io/cluster: kafka-cluster
+  name: sdc-realtime-state
+  namespace: tucana
+spec:
+  topicName: sdc-realtime-state
+  config:
+    retention.ms: 60000  # 1m
+  partitions: 12
+  replicas: 1

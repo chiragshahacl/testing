@@ -1,0 +1,93 @@
+replicaCount: 1
+
+image:
+  repository: 104472814609.dkr.ecr.us-east-2.amazonaws.com/central-monitoring
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+  automountServiceAccountToken: false
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+securityContext:
+  capabilities:
+    drop:
+      - ALL
+  allowPrivilegeEscalation: false
+  seccompProfile:
+    type: RuntimeDefault
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 80
+  internalPort: 3000
+
+ingress:
+  enabled: true
+  istio: false
+  className: "nginx"
+  hosts:
+    - host: cms.${INGRESS_DOMAIN}
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    memory: 256Mi
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 60
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+app:
+  config:
+    LOG_LEVEL: "INFO"
+    APP_URL: "https://api.${INGRESS_DOMAIN}"
+    WSS_URL: "wss://api.${INGRESS_DOMAIN}"
+    CMS_URLS: "https://cms.${INGRESS_DOMAIN}"
+    CMS_WSS_URLS: "wss://cms.${INGRESS_DOMAIN}"
+    HOSPITAL_TZ: "America/Chicago"
+    MAX_NUMBER_BEDS: "64"
+    HEALTHCHECK_INTERVAL: "30000"
+    HOSPITAL_TITLE: "Sibel Hospital"
+    IGNORE_BUTTERWORTH_FILTERS: "0"
+    SAVE_DETAILS_TAB: "0"
+  extraEnvs:
+    - name: SCI_CHART_SERVER_KEY
+      valueFrom:
+        secretKeyRef:
+          name: scichart-server-key
+          key: SCI_CHART_SERVER_KEY

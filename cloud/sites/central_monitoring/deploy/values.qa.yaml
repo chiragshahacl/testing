@@ -1,0 +1,32 @@
+image:
+  repository: 678674662538.dkr.ecr.us-east-2.amazonaws.com/central-monitoring
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets:
+  - name: ecr
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+  hosts:
+    - host: cms.qa.tucana.sibel.health
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls:
+    - secretName: cms-qa-tucana-sibel-health-tls
+      hosts:
+        - cms.qa.tucana.sibel.health
+
+app:
+  config:
+    LOG_LEVEL: "INFO"
+    NODE_ENV: test
+    APP_URL: "https://api.qa.tucana.sibel.health"
+    WSS_URL: "wss://api.qa.tucana.sibel.health"
+    CMS_URLS: "https://cms.qa.tucana.sibel.health"
+    CMS_WSS_URLS: "wss://cms.qa.tucana.sibel.health"
+    IGNORE_BUTTERWORTH_FILTERS: "0"

@@ -1,0 +1,8 @@
+appId: central.monitoring.desktop.iqa
+productName: CMSKiosk-iqa
+directories:
+  output: dist/iqa
+
+extraMetadata:
+  env: iqa
+  APP_URL: https://cms.iqa.tucana.sibel.health

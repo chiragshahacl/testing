@@ -1,0 +1,15 @@
+# https://taskfile.dev
+version: '3'
+
+includes:
+  common-central-hub-deploy:
+    taskfile: ../common/central-hub-install-tasks.yml
+    vars:
+      CENTRAL_HUB_REPO: sibel.health
+
+tasks:
+  deploy:
+    desc: Deploy central-hub
+    internal: true
+    cmds:
+      - task: common-central-hub-deploy:deploy

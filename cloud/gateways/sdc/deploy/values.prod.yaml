@@ -1,0 +1,31 @@
+image:
+  repository: 620908046246.dkr.ecr.us-east-2.amazonaws.com/sdc
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets:
+  - name: ecr
+
+autoscaling:
+  leader:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 1
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+  follower:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 1
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 90
+
+app:
+  config:
+    all:
+      LOG_LEVEL: "INFO"
+      ENVIRONMENT: "prod"
+      SENTRY_DSN: "https://a05f2d9530eb43c78869b628e59e8165@o4504039729135616.ingest.sentry.io/4505404400467968"
+      SENTRY_TRACE_SAMPLE_RATE: "0.1"
+      SENTRY_PROFILES_SAMPLE_RATE: "0.1"
+      FOLLOWER_MAX_CONNECTED_DEVICES: "64"

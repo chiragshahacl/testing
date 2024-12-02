@@ -1,0 +1,14 @@
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: rke2-cilium
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    policyEnforcementMode: always    # enforce network policies
+    policyAuditMode: true            # do not block traffic
+    hostFirewall:
+      enabled: true                  # enable host policies
+    extraConfig:
+      allow-localhost: policy        # enable policies for local host

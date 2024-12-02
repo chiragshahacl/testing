@@ -1,0 +1,16 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: "mirth-host-policy"
+spec:
+  nodeSelector:
+    matchLabels:
+      node.kubernetes.io/instance-type: rke2
+  ingress:
+  - fromEntities:
+    - cluster
+  - fromCIDR:
+      - ${LB_INGRESS_IP}/32
+    toPorts:
+      - ports:
+          - port: "32661"

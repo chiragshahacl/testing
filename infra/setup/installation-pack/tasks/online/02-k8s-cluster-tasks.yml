@@ -1,0 +1,35 @@
+# https://taskfile.dev
+version: '3'
+
+includes:
+  common-k8s-cluster-deploy:
+    taskfile: ../common/k8s-cluster-tasks.yml
+    vars:
+      INSTALLATION_TYPE: online
+
+tasks:
+
+  rke2-inventory:
+    desc: Prepare Ansible inventory
+    internal: true
+    cmds:
+      - |
+        export K8S_CLUSTER_CONTROL_HOSTS="{{.K8S_CLUSTER_CONTROL_HOSTS}}";
+        export K8S_CLUSTER_IPS="{{.K8S_CLUSTER_IPS}}";
+        python3 scripts/inventory.py
+      - cat {{.K8S_CLUSTER_INVENTORY}}
+    status:
+      - test -f {{.K8S_CLUSTER_INVENTORY}}
+
+  rke2-deploy:
+    desc: Deploy K8S cluster
+    internal: true
+    cmds:
+      - task: common-k8s-cluster-deploy:deploy
+
+  deploy:
+    desc: Deploy K8S cluster
+    internal: true
+    cmds:
+      - task: rke2-inventory
+      - task: rke2-deploy

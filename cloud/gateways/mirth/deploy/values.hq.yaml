@@ -1,0 +1,33 @@
+image:
+  # dev registry for now
+  repository: 104472814609.dkr.ecr.us-east-2.amazonaws.com/mirth
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets:
+  - name: ecr
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+    service.alpha.kubernetes.io/app-protocols: '{"https":"HTTPS"}'
+  hosts:
+    - host: api.hq.tucana.sibel.health
+      paths:
+        - path: /mirth
+          pathType: ImplementationSpecific
+          servicePort: 80
+        - path: /ws
+          pathType: ImplementationSpecific
+          servicePort: 6661
+  tls:
+    - secretName: star-hq-tucana-sibel-health-tls
+    - hosts:
+        - api.hq.tucana.sibel.health
+
+app:
+  config:
+    MLLP_HOST: "emulator"
+    MLLP_PORT: "2575"

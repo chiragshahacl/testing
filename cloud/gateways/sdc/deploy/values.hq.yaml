@@ -1,0 +1,15 @@
+image:
+  # dev registry for now
+  repository: 104472814609.dkr.ecr.us-east-2.amazonaws.com/sdc
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets:
+  - name: ecr
+
+app:
+  config:
+    all:
+      ENVIRONMENT: "hq"
+      FOLLOWER_MAX_CONNECTED_DEVICES: "22"
+      SENTRY_DSN: "https://a05f2d9530eb43c78869b628e59e8165@o4504039729135616.ingest.sentry.io/4505404400467968"

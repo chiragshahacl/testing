@@ -1,0 +1,135 @@
+replicaCount: 1
+
+image:
+  repository: 104472814609.dkr.ecr.us-east-2.amazonaws.com/authentication
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+  automountServiceAccountToken: false
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  allowPrivilegeEscalation: false
+  seccompProfile:
+    type: RuntimeDefault
+
+service:
+  type: ClusterIP
+  port: 80
+  internalPort: 8080
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: gateway.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+
+resources:
+  requests:
+    cpu: 300m
+    memory: 512Mi
+  limits:
+    memory: 1024Mi
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 30
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 15
+  successThreshold: 3
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 2
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+app:
+  config:
+    GUNICORN_WORKERS: "2"
+    SENTRY_DSN: ""
+    SENTRY_TRACES_SAMPLE_RATE: "0.1"
+    SENTRY_PROFILES_SAMPLE_RATE: "0.1"
+    ENVIRONMENT: "prod"
+    SIBEL_VERSION: "0.0.1"
+    APPLICATION_PORT: "8080"
+    BASE_PATH: "/authentication"
+    DB_HOST: "postgres"
+    DB_PORT: "5432"
+    DB_NAME: "authentication"
+    DB_USERNAME: "postgres"
+    KAFKA_HOST: "kafka-cluster-kafka-bootstrap"
+    KAFKA_PORT: "9093"
+    KAFKA_CA_FILE_PATH: "/kafka-cluster-certs/ca.crt"
+    KAFKA_CERT_FILE_PATH: "/kafka-user-certs/user.crt"
+    KAFKA_KEY_FILE_PATH: "/kafka-user-certs/user.key"
+    PUBLISHER_AUDIT_TRAIL_STREAM_NAME: "events-authentication"
+    DJANGO_SETTINGS_MODULE: "authentication.settings"
+    REDIS_HOST: "redis"
+    REDIS_PORT: "6379"
+    REDIS_USERNAME: "default"
+    BRUTE_FORCE_ATTEMPT_TTL: "900"
+    BRUTE_FORCE_PROTECTION_ENABLED: "TRUE"
+    PROJECT_NAME: "authentication"
+    DJANGO_SUPERUSER_EMAIL: "${ADMIN_EMAIL}"
+    DJANGO_SUPERUSER_USERNAME: "${ADMIN_EMAIL}"
+    ADMIN_EMAIL: "${ADMIN_EMAIL}"
+  extraEnvs:
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef:
+            name: postgres-creds
+            key: superUserPassword
+    - name: SECRET_RS256_KEY
+      valueFrom:
+        secretKeyRef:
+          name: rsa-private-key
+          key: SECRET_RS256_KEY
+    - name: PUBLIC_RS256_KEY
+      valueFrom:
+        configMapKeyRef:
+          name: rsa-public-key
+          key: PUBLIC_RS256_KEY
+    - name: KAFKA_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: kafka-user
+          key: user.password
+    - name: REDIS_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: redis-creds
+          key: REDIS_PASSWORD

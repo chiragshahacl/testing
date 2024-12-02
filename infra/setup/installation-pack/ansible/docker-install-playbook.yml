@@ -1,0 +1,72 @@
+- name: Install docker packages
+  hosts: all
+  become: true
+  vars:
+    docker_artifact_base_url: https://download.docker.com
+    # Architecture to be downloaded
+    docker_architecture: amd64
+    # OS to be downloaded
+    docker_os_id: ubuntu
+    # OS version to be downloaded
+    docker_os_version: 22.04
+    # OS version codename to be downloaded
+    docker_version_codename: jammy
+    # Containerd version to be downloaded
+    containerd_version: 1.6.9-1
+    # Docker CE version to be downloaded
+    docker_ce_version: 24.0.7-1
+    # Docker buildx version to be downloaded
+    docker_buildx_version: 0.11.2-1
+    # Docker compose version to be downloaded
+    docker_compose_version: 2.6.0
+    # Airgap required artifacts
+    docker_artifact:
+      - containerd.io_{{ containerd_version }}_{{ docker_architecture }}.deb
+      - docker-ce-cli_{{ docker_ce_version }}~{{ docker_os_id }}.{{ docker_os_version }}~{{ docker_version_codename }}_{{ docker_architecture }}.deb
+      - docker-ce_{{ docker_ce_version }}~{{ docker_os_id }}.{{ docker_os_version }}~{{ docker_version_codename }}_{{ docker_architecture }}.deb
+      - docker-buildx-plugin_{{ docker_buildx_version }}~{{ docker_os_id }}.{{ docker_os_version }}~{{ docker_version_codename }}_{{ docker_architecture }}.deb
+      - docker-compose-plugin_{{ docker_compose_version }}~{{ docker_os_id }}-{{ docker_version_codename }}_{{ docker_architecture }}.deb
+    # Local path to store artifacts
+    docker_artifact_path: /install/docker-packages
+
+    # Local path to store artifacts
+    haproxy_artifact_version: 2.7
+    promtail_artifact_version: 2.9.3
+    lb_artifacts_path: /install/images
+    lb_artifacts:
+      - haproxy:{{ haproxy_artifact_version }}.tar.gz
+      - promtail:{{ promtail_artifact_version }}.tar.gz
+
+  tasks:
+    - name: Copy local Docker packages
+      ansible.builtin.copy:
+        src: "{{ docker_artifact_path }}/{{ item }}"
+        dest: "/tmp/{{ item }}"
+        mode: 0644
+        force: yes
+      with_items: "{{ docker_artifact | list }}"
+
+    - name: Install Docker packages
+      ansible.builtin.apt:
+        deb: "/tmp/{{ item }}"
+        force: yes
+      with_items: "{{ docker_artifact | list }}"
+
+    - name: Restart Docker
+      ansible.builtin.service:
+        name: docker
+        state: restarted
+        enabled: true
+
+    - name: Copy local LB container images
+      ansible.builtin.copy:
+        src: "{{ lb_artifacts_path }}/{{ item }}"
+        dest: "/tmp/{{ item }}"
+        mode: 0644
+        force: yes
+      with_items: "{{ lb_artifacts | list }}"
+
+    - name: Load LB container images from the given tar file
+      community.docker.docker_image_load:
+        path: "/tmp/{{ item }}"
+      with_items: "{{ lb_artifacts | list }}"

@@ -1,0 +1,165 @@
+image:
+  repository: 104472814609.dkr.ecr.us-east-2.amazonaws.com/emulator
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+  automountServiceAccountToken: false
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  allowPrivilegeEscalation: false
+  seccompProfile:
+    type: RuntimeDefault
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      containerPort: 8080
+      protocol: TCP
+    - name: mllp
+      port: 2575
+      containerPort: 2575
+      protocol: TCP
+
+ingress:
+  enabled: true
+  istio: false
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+  hosts:
+    - host: api.dev.tucana.sibel.health
+      paths:
+        - path: /emulator
+          pathType: ImplementationSpecific
+  tls:
+    - secretName: api-dev-tucana-sibel-health-tls
+      hosts:
+        - api.dev.tucana.sibel.health
+
+resources:
+  limits:
+    cpu: 400m
+    memory: 256Mi
+  requests:
+    cpu: 400m
+    memory: 256Mi
+
+livenessProbe:
+  httpGet:
+    path: /emulator/health
+    port: http
+
+readinessProbe:
+  httpGet:
+    path: /emulator/health
+    port: http
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 1
+  targetCPUUtilizationPercentage: 50
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+app:
+  config:
+    DEBUG: "False"
+    LOG_LEVEL: "INFO"
+    LOGURU_LEVEL: "INFO"
+    GUNICORN_WORKERS: "1"
+    ENVIRONMENT: "dev"
+    APPLICATION_PORT: "8080"
+    BASE_PATH: "/emulator"
+    CORS_ORIGINS: "https://cms.dev.tucana.sibel.health,http://localhost:3000"
+    TOTAL_MONITORS: "64"
+    TOTAL_SENSORS_PER_MONITOR: "4"
+    PM_CONNECTION_STATUS_MESSAGE_INTERVAL_IN_SECONDS: "2.0"
+    ECG_MAXIMUM_DATAPOINTS_PER_SECOND: "256"
+    ECG_MESSAGE_INTERVAL_IN_SECONDS: "0.5"
+    PLETH_MAXIMUM_DATAPOINTS_PER_SECOND: "64"
+    PLETH_MESSAGE_INTERVAL_IN_SECONDS: "0.5"
+    BP_MESSAGE_INTERVAL_IN_SECONDS: "1.0"
+    HR_MESSAGE_INTERVAL_IN_SECONDS: "1.0"
+    SPO2_MESSAGE_INTERVAL_IN_SECONDS: "5.0"
+    PULSE_MESSAGE_INTERVAL_IN_SECONDS: "5.0"
+    PR_MESSAGE_INTERVAL_IN_SECONDS: "5.0"
+    PI_MESSAGE_INTERVAL_IN_SECONDS: "5.0"
+    ALARM_EVALUATION_INTERVAL: "30"
+    ALERT_HR_LOW: "45"
+    ALERT_HR_HIGH: "120"
+    ALERT_RR_LOW: "5"
+    ALERT_RR_HIGH: "30"
+    ALERT_SPO2_LOW: "85"
+    ALERT_SPO2_HIGH: "100"
+    ALERT_NIBP_SYS_LOW: "90"
+    ALERT_NIBP_SYS_HIGH: "160"
+    ALERT_NIBP_DIA_LOW: "50"
+    ALERT_NIBP_DIA_HIGH: "110"
+    ALERT_BODY_TEMP_LOW: "34"
+    ALERT_BODY_TEMP_HIGH: "39"
+    ALERT_CHEST_SKIN_TEMP_LOW: "34"
+    ALERT_CHEST_SKIN_TEMP_HIGH: "39"
+    ALERT_LIMB_SKIN_TEMP_LOW: "34"
+    ALERT_LIMB_SKIN_TEMP_HIGH: "39"
+    ALERT_DEVICE_BATTERY_LOW: "20"
+    ALERT_DEVICE_BATTERY_CRITICAL: "0"
+    ALERT_DEVICE_SIGNAL_LOW: "20"
+    RR_MAXIMUM_DATAPOINTS_PER_SECOND: "26"
+    RR_MESSAGE_INTERVAL_IN_SECONDS: "0.5"
+    RR_METRIC_MESSAGE_INTERVAL_IN_SECONDS: "20.0"
+    TEMPERATURE_EMULATION_ENABLED: "TRUE"
+    TEMPERATURE_MESSAGE_INTERVAL_IN_SECONDS: "10.0"
+    FALLS_MESSAGE_INTERVAL_IN_SECONDS: "20.0"
+    POSITION_EMULATION_ENABLED: "TRUE"
+    POSITION_MESSAGE_INTERVAL_IN_SECONDS: "90.0"
+    DEVICE_STATUS_EMULATION_ENABLED: "TRUE"
+    DEVICE_SIGNAL_MESSAGE_INTERVAL_IN_SECONDS: "60"
+    DEVICE_BATTERY_MESSAGE_INTERVAL_IN_SECONDS: "60"
+    KAFKA_HOST: "kafka-cluster-kafka-bootstrap"
+    KAFKA_PORT: "9093"
+    KAFKA_VITALS_TOPIC: "vitals"
+    KAFKA_ALERTS_TOPIC: "alerts"
+    KAFKA_TECHNICAL_ALERTS_TOPIC: "events-sdc"
+    KAFKA_DEVICE_TOPIC: "events-sdc"
+    KAFKA_SDC_REALTIME_STATE_TOPIC: "sdc-realtime-state"
+    KAFKA_CA_FILE_PATH: /kafka-cluster-certs/ca.crt
+    KAFKA_CERT_FILE_PATH: /kafka-user-certs/user.crt
+    KAFKA_KEY_FILE_PATH: /kafka-user-certs/user.key
+    SIBEL_VERSION: "0.0.1"
+    ADMIN_USERNAME: "admin@sibelhealth.com"
+    DEVICE_PLATFORM_URL: "http://patient/device"
+    FAKE_DATA_SEED: "1234"
+  extraEnvs:
+    - name: KAFKA_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: kafka-user
+          key: user.password
+    - name: ADMIN_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: admin-password
+          key: ADMIN_PASSWORD

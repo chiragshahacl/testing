@@ -1,0 +1,83 @@
+controller:
+  config:
+    use-proxy-protocol: true
+  admissionWebhooks:
+    patch:
+      image:
+        digest: null
+  image:
+    digest: null
+  extraArgs:
+    default-ssl-certificate: ingress-nginx/ingress-tls
+  kind: DaemonSet
+  service:
+    nodePorts:
+      http: 32080
+      https: 32443
+      tcp:
+        "6661": 32661
+    type: NodePort
+tcp:
+  "6661": central-hub/mirth:6661
+
+defaultBackend:
+  enabled: true
+  image:
+    registry: registry.k8s.io
+    image: ingress-nginx/custom-error-pages
+    digest: null
+    tag: v1.0.1
+  extraVolumes:
+  - name: custom-error-pages
+    configMap:
+      name: custom-error-pages
+      items:
+      - key: "404.html"
+        path: "404.html"
+      - key: "500.html"
+        path: "500.html"
+      - key: "502.html"
+        path: "502.html"
+      - key: "503.html"
+        path: "503.html"
+      - key: "504.html"
+        path: "504.html"
+  extraVolumeMounts:
+  - name: custom-error-pages
+    mountPath: /www
+  extraConfigMaps:
+  # Additional configmap to the default backend pod.
+  - name: custom-error-pages
+    labels:
+      type: custom-error-pages
+    data:
+      404.html: |
+        <!DOCTYPE html>
+        <html>
+          <head><title>PAGE NOT FOUND</title></head>
+          <body>PAGE NOT FOUND</body>
+        </html>
+      500.html: |
+        <!DOCTYPE html>
+        <html>
+          <head><title>SERVICE UNAVAILABLE</title></head>
+          <body>SERVICE UNAVAILABLE</body>
+        </html>
+      502.html: |
+        <!DOCTYPE html>
+        <html>
+          <head><title>SERVICE UNAVAILABLE</title></head>
+          <body>SERVICE UNAVAILABLE</body>
+        </html>
+      503.html: |
+        <!DOCTYPE html>
+        <html>
+          <head><title>SERVICE UNAVAILABLE</title></head>
+          <body>SERVICE UNAVAILABLE</body>
+        </html>
+      504.html: |
+        <!DOCTYPE html>
+        <html>
+          <head><title>SERVICE UNAVAILABLE</title></head>
+          <body>SERVICE UNAVAILABLE</body>
+        </html>

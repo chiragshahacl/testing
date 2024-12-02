@@ -1,0 +1,94 @@
+replicaCount: 1
+
+image:
+  repository: 104472814609.dkr.ecr.us-east-2.amazonaws.com/rkc
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+  automountServiceAccountToken: false
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+securityContext:
+  capabilities:
+    drop:
+    - ALL
+  allowPrivilegeEscalation: false
+  runAsNonRoot: true
+  runAsUser: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+service:
+  type: ClusterIP
+  port: 80
+  internalPort: 8080
+
+ingress:
+  enabled: false
+
+resources:
+  limits:
+    memory: 512Mi
+  requests:
+    cpu: 200m
+    memory: 256Mi
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 30
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 15
+  successThreshold: 3
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+app:
+  config:
+    RUST_LOG: 'info'
+    KAFKA_SERVER: "kafka-cluster-kafka-bootstrap:9093"
+    KAFKA_TOPICS: "vitals"
+    KAFKA_GROUP: "patient-vitals-consumer"
+    KAFKA_CA_FILE_PATH: /kafka-cluster-certs/ca.crt
+    KAFKA_CERT_FILE_PATH: /kafka-user-certs/user.crt
+    KAFKA_KEY_FILE_PATH: /kafka-user-certs/user.key
+    SENTRY_DSN: "https://c16e3ae4853742b49e211d40ffbd8f5b@o4504039729135616.ingest.us.sentry.io/4504254090838017"
+    SENTRY_TRACE_SAMPLE_RATE: "0.1"
+    SENTRY_PROFILES_SAMPLE_RATE: "0.1"
+    SIBEL_VERSION: "0.0.1"
+    VITALS_EXPORT_ENABLED: "true"
+    VITALS_FLUSH_ENDPOINT: "http://mirth:6662/consume/"
+    VITALS_FLUSH_TIMEOUT_SECONDS: "60"
+    ENVIRONMENT: hospital
+
+  extraEnvs:
+    - name: KAFKA_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: kafka-user
+          key: user.password

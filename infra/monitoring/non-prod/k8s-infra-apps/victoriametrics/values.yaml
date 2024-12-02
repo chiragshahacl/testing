@@ -1,0 +1,117 @@
+vmsingle:
+  enabled: false
+vmcluster:
+  enabled: true
+  spec:
+    retentionPeriod: "14"
+    vmselect:
+      replicaCount: 2
+      storage:
+        volumeClaimTemplate:
+          spec:
+            resources:
+              requests:
+                storage: 5Gi
+      extraArgs:
+        dedup.minScrapeInterval: 1ms
+        search.maxQueryDuration: 5m
+      resources:
+        requests:
+          cpu: "1"
+          memory: "2Gi"
+        limits:
+          cpu: "1"
+          memory: "2Gi"
+      podDisruptionBudget:
+        minAvailable: 1
+    vmstorage:
+      replicaCount: 2
+      resources:
+        requests:
+          cpu: "1"
+          memory: "2Gi"
+        limits:
+          cpu: "1"
+          memory: "2Gi"
+      storage:
+        volumeClaimTemplate:
+          spec:
+            resources:
+              requests:
+                storage: 100Gi
+      podDisruptionBudget:
+        minAvailable: 1
+    vminsert:
+      replicaCount: 2
+      extraArgs:
+        replicationFactor: "2"
+      resources:
+        requests:
+          cpu: "1"
+          memory: "2Gi"
+        limits:
+          cpu: "1"
+          memory: "2Gi"
+      podDisruptionBudget:
+        minAvailable: 1
+vmalert:
+  spec:
+    replicaCount: 1
+    datasource:
+      url: "http://vmselect-victoria-metrics-operator.monitoring.svc.cluster.local:8481"
+    remoteWrite:
+        url: "http://vminsert-victoria-metrics-operator.monitoring.svc.cluster.local:8480"
+    remoteRead:
+        url: "http://vmselect-victoria-metrics-operator.monitoring.svc.cluster.local:8481"
+    securityContext:
+      capabilities:
+        drop:
+        - ALL
+      readOnlyRootFilesystem: true
+      runAsNonRoot: true
+      runAsUser: 1000
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+grafana:
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-production
+    path: /
+    pathType: Prefix
+    hosts:
+      - grafana-non-prod.mon.tucana.sibel.health
+    tls:
+      - secretName: grafana-non-prod-mon-tucana-sibel-health-tls
+        hosts:
+        - grafana-non-prod.mon.tucana.sibel.health
+  persistence:
+    type: StatefulSet
+    enabled: true
+    size: 5Gi
+  envFromSecret: grafana-extra-envs
+  grafana.ini:
+    server:
+      root_url: https://grafana-non-prod.mon.tucana.sibel.health
+    auth.basic:
+      enabled: false
+    auth:
+      disable_login_form : true
+    auth.google:
+      enabled : true
+      allow_sign_up : true
+      auto_login : false
+      client_id : CLIENT_ID_PLACEHOLDER
+      client_secret : CLIENT_SECRET_PLACEHOLDER
+      scopes : https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email
+      auth_url : https://accounts.google.com/o/oauth2/auth
+      token_url : https://accounts.google.com/o/oauth2/token
+      allowed_domains : sibelhealth.com
+      hosted_domain : sibelhealth.com
+      use_pkce : true

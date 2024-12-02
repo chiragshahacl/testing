@@ -1,0 +1,49 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: Kafka
+metadata:
+  name: kafka-cluster
+  namespace: tucana
+spec:
+  kafka:
+    authorization:
+      type: simple
+    config:
+      default.replication.factor: 1
+      min.insync.replicas: 1
+      offsets.topic.replication.factor: 1
+      transaction.state.log.min.isr: 1
+      transaction.state.log.replication.factor: 1
+    listeners:
+    - name: plain
+      port: 9092
+      tls: false
+      type: internal
+    - authentication:
+        type: scram-sha-512
+      name: scram
+      port: 9099
+      tls: false
+      type: internal
+    - authentication:
+        type: tls
+      name: tls
+      port: 9093
+      tls: true
+      type: internal
+    replicas: 1
+    storage:
+      type: jbod
+      volumes:
+      - deleteClaim: false
+        id: 0
+        size: 10Gi
+        type: persistent-claim
+  zookeeper:
+    replicas: 1
+    storage:
+      deleteClaim: false
+      size: 10Gi
+      type: persistent-claim
+  entityOperator:
+    topicOperator: {}
+    userOperator: {}

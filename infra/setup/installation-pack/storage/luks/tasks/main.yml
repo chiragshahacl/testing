@@ -1,0 +1,47 @@
+---
+# tasks file for luks
+
+- name: Import assert.yml
+  ansible.builtin.import_tasks:
+    file: assert.yml
+  run_once: true
+  delegate_to: localhost
+
+- name: Create keyfile
+  ansible.builtin.command:
+    cmd: dd if=/dev/urandom of={{ item.keyfile }} bs=2048 count=2
+    creates: "{{ item.keyfile }}"
+  loop: "{{ luks_devices }}"
+  loop_control:
+    label: "{{ item.keyfile }}"
+  when:
+    - luks_devices is defined
+    - item.keyfile is defined
+  notify:
+    - Set permissions on keyfile
+
+- name: Manage luks device
+  community.crypto.luks_device:
+    name: "{{ item.name }}"
+    device: "{{ item.device }}"
+    state: "{{ item.state | default(luks_default_state) }}"
+    passphrase: "{{ item.passphrase | default(omit) }}"  # noqa: args[module]
+    keyfile: "{{ item.keyfile | default(omit) }}"  # noqa: args[module]
+  loop: "{{ luks_devices }}"
+  loop_control:
+    label: "{{ item.device }}"
+  when:
+    - luks_devices is defined
+
+- name: Add the luks device to crypttab
+  community.general.crypttab:
+    name: "{{ item.name }}"
+    state: present
+    password: "{{ item.passphrase | default(item.keyfile) }}"
+    opts: "{{ item.opts | default(omit) }}"
+    backing_device: "{{ item.device }}"
+  loop: "{{ luks_devices }}"
+  loop_control:
+    label: "{{ item.device }}"
+  when:
+    - luks_devices is defined

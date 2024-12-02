@@ -1,0 +1,67 @@
+promtail:
+  config:
+    snippets:
+      pipelineStages:
+        - cri: {}
+      extraScrapeConfigs: |
+        - job_name: audit-logs
+          static_configs:
+            - targets:
+                - localhost
+              labels:
+                job: audit-logs
+                __path__: /var/lib/rancher/rke2/server/logs/*.log
+  extraVolumes:
+    - name: audit-logs
+      hostPath:
+        path: /var/lib/rancher/rke2/server/logs
+  extraVolumeMounts:
+    - name: audit-logs
+      mountPath: /var/lib/rancher/rke2/server/logs
+  tolerations:
+    - key: CriticalAddonsOnly
+      operator: Exists
+
+loki:
+  image:
+    tag: 2.9.3
+  isDefault: false
+  service:
+    type: NodePort
+    nodePort: 32333
+  persistence:
+    enabled: true
+    accessModes:
+    - ReadWriteOnce
+    size: 100Gi
+  config:
+    server:
+      grpc_server_max_recv_msg_size: 104857600
+      grpc_server_max_send_msg_size: 104857600
+    limits_config:
+      split_queries_by_interval: 24h
+      max_query_parallelism: 100
+      retention_period: 168h # 7 days
+      ingestion_rate_mb: 20
+    query_scheduler:
+      max_outstanding_requests_per_tenant: 10000
+    frontend:
+      max_outstanding_per_tenant: 10000
+    compactor:
+      retention_enabled: true
+      retention_delete_delay: 2h
+      deletion_mode: filter-and-delete
+    ruler:
+      storage:
+        type: local
+        local:
+          directory: /tmp/rules
+      rule_path: /tmp/scratch
+      alertmanager_url: http://prometheus-kube-prometheus-alertmanager.monitoring:9093
+      ring:
+        kvstore:
+          store: inmemory
+      enable_api: true
+
+test_pod:
+  enabled: false

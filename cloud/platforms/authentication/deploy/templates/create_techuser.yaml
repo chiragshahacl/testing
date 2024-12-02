@@ -1,0 +1,53 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ include "deploy.fullname" . }}-create-tech-user"
+  labels:
+    {{- include "deploy.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "3"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  template:
+    metadata:
+      name: "{{ include "deploy.fullname" . }}-migrations"
+      labels:
+        {{- include "deploy.labels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - "python"
+            - "manage.py"
+            - "create_system_user"
+            - "--email"
+            - "$(TECHICAL_USER_MAIL)"
+            - "--groups"
+            - "tech"
+            - "--password"
+            - "$(TECHICAL_USER_PASSWORD)"
+            - "--first_name"
+            - "tech"
+            - "--last_name"
+            - "tech"
+          env:
+          {{- if .Values.app.extraEnvs -}}
+          {{ toYaml .Values.app.extraEnvs | nindent 12 }}
+          {{- end }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "deploy.fullname" . }}
+            - secretRef:
+                name: "django-secret"
+            - secretRef:
+                name: "tech-user-password"

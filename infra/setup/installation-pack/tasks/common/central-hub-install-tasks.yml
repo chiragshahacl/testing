@@ -1,0 +1,219 @@
+# https://taskfile.dev
+version: '3'
+
+vars:
+  MANIFESTS_DIR: '{{.USER_WORKING_DIR}}/central-hub'
+  INFRA_DIR: '{{.USER_WORKING_DIR}}/k8s-infra'
+  CREDS_DIR: '/tmp/creds'
+
+tasks:
+
+  create-creds-dir:
+    desc: Create directory for all credentials
+    internal: true
+    cmds:
+      - mkdir -p {{.CREDS_DIR}}
+      - mkdir -p {{.MANIFESTS_DIR}}/manifests
+
+  key-pair-secret:
+    desc: Create private/public key pair
+    internal: true
+    cmds:
+      - >
+        if [ ! -f {{.CREDS_DIR}}/private_key.pem ]; then
+          echo "Creating a new certificate..."
+          openssl genrsa -out {{.CREDS_DIR}}/private_key.pem 2048
+          openssl rsa -in {{.CREDS_DIR}}/private_key.pem -out {{.CREDS_DIR}}/public_key.pem -outform PEM -pubout
+          cat {{.CREDS_DIR}}/private_key.pem | base64 -w0 > {{.MANIFESTS_DIR}}/manifests/private_key_b64.pem
+          cat {{.CREDS_DIR}}/public_key.pem | base64 -w0 > {{.MANIFESTS_DIR}}/manifests/public_key_b64.pem
+          kubectl create configmap -n central-hub \
+            rsa-public-key --from-file=PUBLIC_RS256_KEY={{.MANIFESTS_DIR}}/manifests/public_key_b64.pem \
+            -o yaml --dry-run=client > {{.MANIFESTS_DIR}}/manifests/rsa-public-key.yaml
+          kubectl create secret generic -n central-hub \
+            rsa-private-key --from-file=SECRET_RS256_KEY={{.MANIFESTS_DIR}}/manifests/private_key_b64.pem \
+            -o yaml --dry-run=client > {{.MANIFESTS_DIR}}/manifests/rsa-private-key.yaml
+
+        elif [ ! -f {{.MANIFESTS_DIR}}/manifests/rsa-public-key.yaml ]; then
+          echo "Creating k8s secret from existing certificate..."
+          cat {{.CREDS_DIR}}/private_key.pem | base64 -w0 > {{.MANIFESTS_DIR}}/manifests/private_key_b64.pem
+          cat {{.CREDS_DIR}}/public_key.pem | base64 -w0 > {{.MANIFESTS_DIR}}/manifests/public_key_b64.pem
+          kubectl create configmap -n central-hub \
+            rsa-public-key --from-file=PUBLIC_RS256_KEY={{.MANIFESTS_DIR}}/manifests/public_key_b64.pem \
+            -o yaml --dry-run=client > {{.MANIFESTS_DIR}}/manifests/rsa-public-key.yaml
+          kubectl create secret generic -n central-hub \
+            rsa-private-key --from-file=SECRET_RS256_KEY={{.MANIFESTS_DIR}}/manifests/private_key_b64.pem \
+            -o yaml --dry-run=client > {{.MANIFESTS_DIR}}/manifests/rsa-private-key.yaml
+
+        else
+          echo "Manifest with certificate already exist, applying it..."
+        fi
+      - kubectl apply -f {{.MANIFESTS_DIR}}/manifests/rsa-private-key.yaml
+      - kubectl apply -f {{.MANIFESTS_DIR}}/manifests/rsa-public-key.yaml
+    status:
+      - kubectl get configmap -n central-hub rsa-public-key
+      - kubectl get secret -n central-hub rsa-private-key
+
+  sdc-certs-secret:
+    desc: Create secret with certificates for SDC
+    internal: true
+    cmds:
+      - >
+          kubectl create secret generic -n central-hub sdc-certs \
+            --from-file=CRYPTO_USER_KEY=/tmp/consumerLeaf1.key \
+            --from-file=CRYPTO_USER_CERT=/tmp/consumerLeaf1.crt \
+            --from-file=CRYPTO_CA_CERT=/tmp/intermediateCA.crt \
+            --from-literal=CRYPTO_USER_KEY_PASSWORD="{{.SDC_CERT_PASSWORD}}" \
+            --dry-run=client -oyaml > {{.MANIFESTS_DIR}}/manifests/sdc-cert.yaml
+      - kubectl apply -f {{.MANIFESTS_DIR}}/manifests/sdc-cert.yaml
+
+  superuser-for-authentication-secret:
+    desc: Create secret for superuser
+    internal: true
+    cmds:
+      - >
+        kubectl create secret generic admin-password -n central-hub \
+          --from-literal=ADMIN_PASSWORD={{.ADMIN_PASSWORD}} \
+          --from-literal=ADMIN_EMAIL={{.ADMIN_EMAIL}} \
+          -o yaml --dry-run=client > {{.MANIFESTS_DIR}}/manifests/admin-password-secret.yaml
+        echo "ADMIN_PASSWORD = {{.ADMIN_PASSWORD}}" > {{.CREDS_DIR}}/central-hub.txt
+      - kubectl apply -f {{.MANIFESTS_DIR}}/manifests/admin-password-secret.yaml
+    status:
+      - kubectl get secret -n central-hub admin-password
+
+  techuser-for-authentication-secret:
+    desc: Create secret for technical user
+    internal: true
+    cmds:
+      - >
+        kubectl create secret generic tech-user-password -n central-hub \
+          --from-literal=TECHICAL_USER_PASSWORD={{.TECHICAL_USER_PASSWORD}} \
+          --from-literal=TECHICAL_USER_MAIL={{.TECHICAL_USER_MAIL}} \
+          -o yaml --dry-run=client > {{.MANIFESTS_DIR}}/manifests/tech-user-password-secret.yaml
+        echo "TECHICAL_USER_PASSWORD = {{.TECHICAL_USER_PASSWORD}}" > {{.CREDS_DIR}}/central-hub-tech-user.txt
+      - kubectl apply -f {{.MANIFESTS_DIR}}/manifests/tech-user-password-secret.yaml
+    status:
+      - kubectl get secret -n central-hub tech-user-password
+
+  mirth-admin-secret:
+    desc: Create secret for Mirth admin
+    internal: true
+    cmds:
+      - >
+        if [ ! -f {{.CREDS_DIR}}/mirth.txt ]; then
+          echo "Creating new mirth admin password..."
+          MIRTH_ADMIN=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30)
+          kubectl create secret generic mirth-admin-secret -n central-hub \
+            --from-literal=PASS=${MIRTH_ADMIN} \
+            -o yaml --dry-run=client > {{.MANIFESTS_DIR}}/manifests/mirth-admin-password-secret.yaml
+          echo "MIRTH_ADMIN = ${MIRTH_ADMIN}" > {{.CREDS_DIR}}/mirth.txt
+
+        elif [ ! -f {{.MANIFESTS_DIR}}/manifests/mirth-admin-password-secret.yaml ]; then
+          echo "Creating k8s secret from existing mirth admin password..."
+          MIRTH_ADMIN=$(cat {{.CREDS_DIR}}/mirth.txt | grep MIRTH_ADMIN | cut -d'=' -f2 | xargs)
+          kubectl create secret generic mirth-admin-secret -n central-hub \
+            --from-literal=PASS=${MIRTH_ADMIN} \
+            -o yaml --dry-run=client > {{.MANIFESTS_DIR}}/manifests/mirth-admin-password-secret.yaml
+        else
+          echo "Manifest with Mirth admin password already exist, applying it..."
+        fi
+      - kubectl apply -f {{.MANIFESTS_DIR}}/manifests/mirth-admin-password-secret.yaml
+    status:
+      - kubectl get secret -n central-hub mirth-admin-secret
+
+  ski-chart-key:
+    desc: Create secret for ski-chart key
+    internal: true
+    cmds:
+      - >
+        kubectl create secret generic -n central-hub scichart-server-key \
+          --from-literal=SCI_CHART_SERVER_KEY="${SCI_CHART_SERVER_KEY}" \
+          --dry-run=client -oyaml > {{.MANIFESTS_DIR}}/manifests/scichart-server-key.yaml
+      - kubectl apply -f {{.MANIFESTS_DIR}}/manifests/scichart-server-key.yaml
+
+  ingress-certificate:
+    desc: Update ingress certificate
+    internal: true
+    cmds:
+      - >
+        if [[ -f "/tmp/{{.LB_INGRESS_CERT_PRIVATE_KEY}}" && -f "/tmp/{{.LB_INGRESS_CERT_PUBLIC_KEY}}" ]]; then
+          kubectl create secret tls ingress-tls \
+          --namespace ingress-nginx \
+          --key="/tmp/{{.LB_INGRESS_CERT_PRIVATE_KEY}}" \
+          --cert="/tmp/{{.LB_INGRESS_CERT_PUBLIC_KEY}}" \
+          -o yaml --dry-run=client > {{.INFRA_DIR}}/ingress-certificate.yaml;
+          kubectl apply -f {{.INFRA_DIR}}/ingress-certificate.yaml
+        fi
+
+  placeholders-substitution:
+    desc: Prepare manifests
+    internal: true
+    cmds:
+      - |
+        export INGRESS_DOMAIN="{{.LB_INGRESS_DOMAIN}}";
+        export ADMIN_EMAIL="{{.ADMIN_EMAIL}}";
+        export TECHICAL_USER_MAIL="{{.TECHICAL_USER_MAIL}}";
+        envsubst < {{.MANIFESTS_DIR}}/chart/charts/web/values.yaml > {{.MANIFESTS_DIR}}/chart/charts/web/values.yaml.tmp && \
+        mv {{.MANIFESTS_DIR}}/chart/charts/web/values.yaml.tmp {{.MANIFESTS_DIR}}/chart/charts/web/values.yaml;
+        envsubst < {{.MANIFESTS_DIR}}/chart/charts/authentication/values.yaml > {{.MANIFESTS_DIR}}/chart/charts/authentication/values.yaml.tmp && \
+        mv {{.MANIFESTS_DIR}}/chart/charts/authentication/values.yaml.tmp {{.MANIFESTS_DIR}}/chart/charts/authentication/values.yaml;
+        envsubst < {{.MANIFESTS_DIR}}/chart/charts/realtime/values.yaml > {{.MANIFESTS_DIR}}/chart/charts/realtime/values.yaml.tmp && \
+        mv {{.MANIFESTS_DIR}}/chart/charts/realtime/values.yaml.tmp {{.MANIFESTS_DIR}}/chart/charts/realtime/values.yaml;
+        envsubst < {{.MANIFESTS_DIR}}/chart/charts/central-monitoring/values.yaml > {{.MANIFESTS_DIR}}/chart/charts/central-monitoring/values.yaml.tmp && \
+        mv {{.MANIFESTS_DIR}}/chart/charts/central-monitoring/values.yaml.tmp {{.MANIFESTS_DIR}}/chart/charts/central-monitoring/values.yaml;
+        envsubst < {{.MANIFESTS_DIR}}/chart/charts/mirth/values.yaml > {{.MANIFESTS_DIR}}/chart/charts/mirth/values.yaml.tmp && \
+        mv {{.MANIFESTS_DIR}}/chart/charts/mirth/values.yaml.tmp {{.MANIFESTS_DIR}}/chart/charts/mirth/values.yaml;
+
+  central-hub:
+    desc: Deploy helm charts
+    internal: true
+    cmds:
+      - |
+        helm upgrade -i central-hub {{.MANIFESTS_DIR}}/chart --namespace central-hub --create-namespace \
+        --set audit-trail.image.repository={{.CENTRAL_HUB_REPO}}/audit-trail \
+        --set audit-trail.image.tag={{.CENTRAL_HUB_RELEASE_TAG}} \
+        --set authentication.image.repository={{.CENTRAL_HUB_REPO}}/authentication \
+        --set authentication.image.tag={{.CENTRAL_HUB_RELEASE_TAG}} \
+        --set central-monitoring.image.repository={{.CENTRAL_HUB_REPO}}/central-monitoring \
+        --set central-monitoring.image.tag={{.CENTRAL_HUB_RELEASE_TAG}} \
+        --set patient.image.repository={{.CENTRAL_HUB_REPO}}/patient \
+        --set patient.image.tag={{.CENTRAL_HUB_RELEASE_TAG}} \
+        --set realtime.image.repository={{.CENTRAL_HUB_REPO}}/realtime \
+        --set realtime.image.tag={{.CENTRAL_HUB_RELEASE_TAG}} \
+        --set sdc.image.repository={{.CENTRAL_HUB_REPO}}/sdc \
+        --set sdc.image.tag={{.CENTRAL_HUB_RELEASE_TAG}} \
+        --set web.image.repository={{.CENTRAL_HUB_REPO}}/web \
+        --set web.image.tag={{.CENTRAL_HUB_RELEASE_TAG}} \
+        --set mirth.image.repository={{.CENTRAL_HUB_REPO}}/mirth \
+        --set mirth.image.tag={{.CENTRAL_HUB_RELEASE_TAG}} \
+        --set rkc.image.repository={{.CENTRAL_HUB_REPO}}/rkc \
+        --set rkc.image.tag={{.CENTRAL_HUB_RELEASE_TAG}} \
+        --set config.image.repository={{.CENTRAL_HUB_REPO}}/config \
+        --set config.image.tag={{.CENTRAL_HUB_RELEASE_TAG}}
+
+  mirth-token:
+    desc: Generate token for Mirth
+    internal: true
+    cmds:
+      - >
+        NEXT_CONNECT_SECRET=$(kubectl -n central-hub exec deploy/authentication -- python manage.py create_internal_token --duration-days 3560);
+        kubectl create secret generic -n central-hub next-connect-secret \
+          --from-literal=NEXT_CONNECT_SECRET="${NEXT_CONNECT_SECRET}" \
+          --dry-run=client -oyaml > {{.MANIFESTS_DIR}}/manifests/next-connect-secret.yaml
+      - kubectl apply -f {{.MANIFESTS_DIR}}/manifests/next-connect-secret.yaml
+      - kubectl -n central-hub rollout restart deploy mirth
+
+  deploy:
+    desc: Deploy central-hub
+    internal: true
+    cmds:
+      - task: create-creds-dir
+      - task: key-pair-secret
+      - task: sdc-certs-secret
+      - task: superuser-for-authentication-secret
+      - task: techuser-for-authentication-secret
+      - task: mirth-admin-secret
+      - task: ski-chart-key
+      - task: ingress-certificate
+      - task: placeholders-substitution
+      - task: central-hub
+      - task: mirth-token

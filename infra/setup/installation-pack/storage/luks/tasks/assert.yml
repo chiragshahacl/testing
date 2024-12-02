@@ -1,0 +1,117 @@
+---
+
+- name: assert | Test luks_default_state
+  ansible.builtin.assert:
+    that:
+      - luks_default_state is defined
+      - luks_default_state is string
+      - luks_default_state in [ "absent", "closed", "opened", "present" ]
+    quiet: true
+
+- name: assert | Test luks_devices
+  ansible.builtin.assert:
+    that:
+      - luks_devices is iterable
+    quiet: true
+  when:
+    - luks_devices is defined
+
+- name: assert | Test item.name in luks_devices
+  ansible.builtin.assert:
+    that:
+      - item.name is defined
+      - item.name is string
+      - item.name is not none
+    quiet: true
+  loop: "{{ luks_devices }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - luks_devices is defined
+
+- name: assert | Test item.device in luks_devices
+  ansible.builtin.assert:
+    that:
+      - item.device is defined
+      - item.device is string
+      - item.device is not none
+    quiet: true
+  loop: "{{ luks_devices }}"
+  loop_control:
+    label: "{{ item.device }}"
+  when:
+    - luks_devices is defined
+
+- name: assert | Test item.state in luks_devices
+  ansible.builtin.assert:
+    that:
+      - item.state in [ "absent", "present" ]
+    quiet: true
+  loop: "{{ luks_devices }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - luks_devices is defined
+    - item.state is defined
+
+- name: assert | Test item.passphrase in luks_devices
+  ansible.builtin.assert:
+    that:
+      - item.passphrase is string
+      - item.passphrase is not none
+    quiet: true
+  loop: "{{ luks_devices }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - luks_devices is defined
+    - item.passphrase is defined
+
+- name: assert | Test item.keyfile in luks_devices
+  ansible.builtin.assert:
+    that:
+      - item.keyfile is string
+      - item.keyfile is not none
+    quiet: true
+  loop: "{{ luks_devices }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - luks_devices is defined
+    - item.keyfile is defined
+
+- name: assert | Test either keyfile or passphrase is used
+  ansible.builtin.assert:
+    that:
+      - item.passphrase is not defined
+    quiet: true
+  loop: "{{ luks_devices }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - luks_devices is defined
+    - item.keyfile is defined
+
+- name: assert | Test either passphrase or keyfile is used
+  ansible.builtin.assert:
+    that:
+      - item.keyfile is not defined
+    quiet: true
+  loop: "{{ luks_devices }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - luks_devices is defined
+    - item.passphrase is defined
+
+- name: assert | Test either passphrase or keyfile are set
+  ansible.builtin.assert:
+    that:
+      - item.keyfile is defined or
+        item.passphrase is defined
+    quiet: true
+  loop: "{{ luks_devices }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - luks_devices is defined

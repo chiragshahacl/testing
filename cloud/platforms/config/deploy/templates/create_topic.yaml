@@ -1,0 +1,59 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ include "deploy.fullname" . }}-create-vitals-topic"
+  labels:
+    {{- include "deploy.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "3"
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  template:
+    metadata:
+      name: "{{ include "deploy.fullname" . }}-vitals-topic-creation"
+      labels:
+        {{- include "deploy.labels" . | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["python", "create_vitals_topic.py"]
+          env:
+          {{- if .Values.app.extraEnvs -}}
+          {{ toYaml .Values.app.extraEnvs | nindent 12 }}
+          {{- end }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "deploy.fullname" . }}
+          volumeMounts:
+              - name: kafka-user-certs
+                mountPath: /kafka-user-certs/
+                readOnly: true
+              - name: kafka-cluster-certs
+                mountPath: /kafka-cluster-certs/
+                readOnly: true
+      volumes:
+        - name: kafka-user-certs
+          secret:
+            secretName: kafka-config-user
+            items:
+              - key: user.crt
+                path: ./user.crt
+              - key: user.key
+                path: ./user.key
+        - name: kafka-cluster-certs
+          secret:
+            secretName: kafka-cluster-cluster-ca-cert
+            items:
+              - key: ca.crt
+                path: ./ca.crt
+

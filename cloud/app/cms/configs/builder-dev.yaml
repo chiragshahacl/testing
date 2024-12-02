@@ -1,0 +1,8 @@
+appId: central.monitoring.desktop.development
+productName: CMSKiosk-dev
+directories:
+  output: dist/dev
+
+extraMetadata:
+  env: dev
+  APP_URL: https://cms.dev.tucana.sibel.health

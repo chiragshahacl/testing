@@ -1,0 +1,17 @@
+- name: Storage - mount
+  hosts: workers
+  become: true
+  gather_facts: true
+  roles:
+    - role: "/install/storage/fs"
+  vars:
+    storage_mounts:
+      - name: /opt/local-path-provisioner
+        src: /dev/mapper/cryptdata
+        owner: root
+        group: root
+        mode: "0755"
+        opts: defaults
+        boot: true
+        dump: 0
+        passno: 2

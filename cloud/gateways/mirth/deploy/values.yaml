@@ -1,0 +1,135 @@
+replicaCount: 1
+
+image:
+  repository: 104472814609.dkr.ecr.us-east-2.amazonaws.com/mirth
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+  automountServiceAccountToken: false
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+securityContext:
+  capabilities:
+    drop:
+    - NET_RAW
+    - CHOWN
+    - NET_BIND_SERVICE
+  allowPrivilegeEscalation: false
+
+service:
+  type: ClusterIP
+  port: 80
+  internalPort: 8443
+  portWS: 6661
+  internalWSPort: 6661
+  internalHttp: 6662
+
+ingress:
+  enabled: true
+  istio: false
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+    service.alpha.kubernetes.io/app-protocols: '{"https":"HTTPS"}'
+  hosts:
+    - host: api.${INGRESS_DOMAIN}
+      paths:
+        - path: /mirth
+          pathType: ImplementationSpecific
+          servicePort: 80
+
+resources:
+  limits:
+    memory: 2048Mi
+  requests:
+    cpu: 200m
+    memory: 2048Mi
+
+livenessProbe:
+  httpGet:
+    path: /mirth/api/server/status
+    port: http
+    scheme: HTTPS
+    httpHeaders:
+      - name: X-Requested-With
+        value: XMLHttpRequest
+
+readinessProbe:
+  httpGet:
+    path: /mirth/api/server/status
+    port: http
+    scheme: HTTPS
+    httpHeaders:
+      - name: X-Requested-With
+        value: XMLHttpRequest
+
+startupProbe:
+  httpGet:
+    path: /mirth/api/server/status
+    port: http
+    scheme: HTTPS
+    httpHeaders:
+      - name: X-Requested-With
+        value: XMLHttpRequest
+  failureThreshold: 30
+  periodSeconds: 10
+
+autoscaling:
+  enabled: false
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+app:
+  config:
+    ENDPOINT: "https://localhost:8443/mirth/api"
+    USER: "admin"
+    DATABASE: "postgres"
+    DATABASE_URL: "jdbc:postgresql://postgres:5432/mirthdb"
+    DATABASE_USERNAME: "postgres"
+    MLLP_HOST: ${EHR_HOST}
+    MLLP_PORT: ${EHR_PORT}
+    CONF_SERVICE_URL: "http://authentication/api/configuration/"
+    MLLP_EXPORT_INTERVAL_MINUTES: "5"
+  extraEnvs:
+    - name: AUTH_TOKEN
+      valueFrom:
+        secretKeyRef:
+          name: next-connect-secret
+          key: NEXT_CONNECT_SECRET
+    - name: PASS
+      valueFrom:
+        secretKeyRef:
+          name: mirth-admin-secret
+          key: PASS
+    - name: DATABASE_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: postgres-creds
+          key: superUserPassword
+    - name: DB_ENCRYPTION_KEY
+      valueFrom:
+        secretKeyRef:
+          name: postgres-creds
+          key: crypto
+    - name: KEYSTORE_STOREPASS
+      valueFrom:
+        secretKeyRef:
+          name: mirth-keypass-secrets
+          key: KEYSTORE_STOREPASS
+    - name: KEYSTORE_KEYPASS
+      valueFrom:
+        secretKeyRef:
+          name: mirth-keypass-secrets
+          key: KEYSTORE_KEYPASS
+

@@ -1,0 +1,15 @@
+package org.sibel.models.events;
+
+public enum EventType {
+    DISCOVERY,
+    METRICS_UPDATE,
+    WAVEFORMS_UPDATE,
+    PATIENT_SESSION_STARTED,
+    PATIENT_SESSION_ENDED,
+    PATIENT_REJECTED,
+    VITAL_RANGES_UPDATE,
+    ALERTS_UPDATE,
+    SENSORS_UPDATE,
+    DISCONNECT,
+    HEALTH_CHECK
+}

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="styles.css" />
+    <title>Central Monitoring</title>
+  </head>
+
+  <body>
+    <div class="form-container">
+      <img
+        src="../images/desktop-icon.png"
+        alt="anne Central"
+        class="center"
+        height="65px"
+      />
+      <form id="app-url-form">
+        <label for="appUrl">Enter APP_URL</label>
+        <br />
+        <input type="text" id="appUrl" name="appUrl" />
+        <button type="submit">Save</button>
+      </form>
+    </div>
+
+    <script>
+      const { ipcRenderer } = require("electron");
+
+      const form = document.getElementById("app-url-form");
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const appUrl = document.getElementById("appUrl").value;
+        ipcRenderer.send("url-save", appUrl);
+      });
+    </script>
+  </body>
+</html>

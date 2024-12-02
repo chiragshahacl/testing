@@ -1,0 +1,12 @@
+# helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+# helm repo update
+# helm upgrade -i ingress-nginx ingress-nginx/ingress-nginx -n ingress-nginx  --create-namespace --version=4.5.2 -f infra/dev/k8s-infra-apps/ingress-nginx/values.yaml
+controller:
+  kind: DaemonSet
+  service:
+    type: NodePort
+    nodePorts:
+      http: 32080
+      https: 32443
+  nodeSelector:
+    workload: "true"

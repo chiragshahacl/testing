@@ -1,0 +1,224 @@
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    strimzi.io/cluster: kafka-cluster
+  name: waveform
+  namespace: central-hub
+spec:
+  topicName: waveform
+  config:
+    retention.ms: 86400000  # 24h
+  partitions: 12
+  replicas: 3
+
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    strimzi.io/cluster: kafka-cluster
+  name: vitals
+  namespace: central-hub
+spec:
+  topicName: vitals
+  config:
+    retention.ms: 172800000  # 48h
+  partitions: 12
+  replicas: 3
+
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    strimzi.io/cluster: kafka-cluster
+  name: events-patient
+  namespace: central-hub
+spec:
+  topicName: events-patient
+  config:
+    retention.ms: 604800000  # 7d
+  partitions: 12
+  replicas: 3
+
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    strimzi.io/cluster: kafka-cluster
+  name: events-device
+  namespace: central-hub
+spec:
+  topicName: events-device
+  config:
+    retention.ms: 604800000  # 7d
+  partitions: 12
+  replicas: 3
+
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    strimzi.io/cluster: kafka-cluster
+  name: events-authentication
+  namespace: central-hub
+spec:
+  topicName: events-authentication
+  config:
+    retention.ms: 604800000  # 7d
+  partitions: 12
+  replicas: 3
+
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    strimzi.io/cluster: kafka-cluster
+  name: events-config
+  namespace: central-hub
+spec:
+  topicName: events-config
+  config:
+    retention.ms: 604800000  # 7d
+  partitions: 12
+  replicas: 3
+
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    strimzi.io/cluster: kafka-cluster
+  name: alerts
+  namespace: central-hub
+spec:
+  topicName: alerts
+  config:
+    retention.ms: 259200000  # 72h
+  partitions: 12
+  replicas: 3
+
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    strimzi.io/cluster: kafka-cluster
+  name: technical-alerts
+  namespace: central-hub
+spec:
+  topicName: technical-alerts
+  config:
+    retention.ms: 259200000  # 72h
+  partitions: 12
+  replicas: 3
+
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    strimzi.io/cluster: kafka-cluster
+  name: events-sdc
+  namespace: central-hub
+spec:
+  topicName: events-sdc
+  config:
+    retention.ms: 604800000  # 7d
+  partitions: 12
+  replicas: 3
+
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    strimzi.io/cluster: kafka-cluster
+  name: sdc-realtime-state
+  namespace: central-hub
+spec:
+  topicName: sdc-realtime-state
+  config:
+    retention.ms: 60000  # 1m
+  partitions: 12
+  replicas: 3
+
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    strimzi.io/cluster: kafka-cluster
+  name: sdc-internal-device-discovery
+  namespace: central-hub
+spec:
+  topicName: sdc-internal-device-discovery
+  config:
+    retention.ms: 60000  # 1m
+  partitions: 12
+  replicas: 3
+
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    strimzi.io/cluster: kafka-cluster
+  name: device-commands-requests
+  namespace: central-hub
+spec:
+  topicName: device-commands-requests
+  config:
+    retention.ms: 60000  # 1m
+  partitions: 12
+  replicas: 3
+
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    strimzi.io/cluster: kafka-cluster
+  name: device-commands-responses
+  namespace: central-hub
+spec:
+  topicName: device-commands-responses
+  config:
+    retention.ms: 60000  # 1m
+  partitions: 12
+  replicas: 3
+
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    strimzi.io/cluster: kafka-cluster
+  name: vitals-backfill
+  namespace: central-hub
+spec:
+  topicName: vitals-backfill
+  config:
+    retention.ms: 172800000  # 48h
+  partitions: 12
+  replicas: 3
+
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  labels:
+    strimzi.io/cluster: kafka-cluster
+  name: healthcheck
+  namespace: central-hub
+spec:
+  topicName: healthcheck
+  config:
+    retention.ms: 60000  # 1m
+  partitions: 12
+  replicas: 3

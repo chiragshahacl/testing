@@ -1,0 +1,30 @@
+- name: Upload Central Hub tarballs
+  hosts: all
+  become: true
+  vars:
+    central_hub_tarballs_sourcepath: /install/images
+    central_hub_tarballs_targetpath: /var/lib/rancher/rke2/agent/images
+    central_hub_tarballs:
+      - audit-trail-{{ central_hub_release }}.tar.gz
+      - authentication-{{ central_hub_release }}.tar.gz
+      - central-monitoring-{{ central_hub_release }}.tar.gz
+      - patient-{{ central_hub_release }}.tar.gz
+      - realtime-{{ central_hub_release }}.tar.gz
+      - sdc-{{ central_hub_release }}.tar.gz
+      - web-{{ central_hub_release }}.tar.gz
+      - mirth-{{ central_hub_release }}.tar.gz
+      - rkc-{{ central_hub_release }}.tar.gz
+  tasks:
+    - name: Copy local Central Hub images tarballs
+      ansible.builtin.copy:
+        src: "{{ central_hub_tarballs_sourcepath }}/{{ item }}"
+        dest: "{{ central_hub_tarballs_targetpath }}/{{ item | regex_replace('(-v\\d+\\.\\d+\\.\\d.*)(.tar.gz)', '\\2') }}"
+        mode: 0644
+        force: yes
+      with_items: "{{ central_hub_tarballs | list }}"
+      when: central_hub_tarballs | length > 0
+
+    - name: Restart RKE2 services
+      ansible.builtin.service:
+        name: "rke2-{{ rke2_type }}.service"
+        state: restarted

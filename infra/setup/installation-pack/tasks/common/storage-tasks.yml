@@ -1,0 +1,102 @@
+# https://taskfile.dev
+version: '3'
+
+vars:
+  K8S_CLUSTER_INVENTORY: '{{.USER_WORKING_DIR}}/ansible/k8s-inventory.ini'
+
+tasks:
+
+  storage-vars:
+    desc: Prepare Ansible playbook vars
+    internal: true
+    cmds:
+      - |
+        if [ {{.DATA_DISK_OPERATIONS_ENABLED }} != "true" ]; then
+          echo "Data disk operations are disabled"
+          exit 0
+        else
+          export DEVICE_NAME="{{.DATA_DISK_DEVICE_NAME}}";
+          export KEYFILE="{{.DATA_DISK_ENCRYPRTION_KEYFILE}}";
+          envsubst < {{.USER_WORKING_DIR}}/ansible/luks-playbook.yml > {{.USER_WORKING_DIR}}/ansible/luks-playbook.yml.tmp && \
+          mv {{.USER_WORKING_DIR}}/ansible/luks-playbook.yml.tmp {{.USER_WORKING_DIR}}/ansible/luks-playbook.yml;
+        fi
+
+  inventory:
+    desc: Prepare Ansible inventory
+    internal: true
+    cmds:
+      - |
+        export K8S_CLUSTER_CONTROL_HOSTS="{{.K8S_CLUSTER_CONTROL_HOSTS}}";
+        export K8S_CLUSTER_IPS="{{.K8S_CLUSTER_IPS}}";
+        python3 scripts/inventory.py
+      - cat {{.K8S_CLUSTER_INVENTORY}}
+    status:
+      - test -f {{.K8S_CLUSTER_INVENTORY}}
+
+  preflight:
+    desc: Checks connectivity
+    internal: true
+    cmds:
+      - |
+        ansible-inventory --inventory {{.K8S_CLUSTER_INVENTORY}} --list;
+        ansible all --inventory {{.K8S_CLUSTER_INVENTORY}} -m ping \
+        --user {{.SSH_USER}} \
+        --private-key=/tmp/{{.PRIVATE_KEY_NAME}} \
+        --ssh-common-args='-o StrictHostKeyChecking=no'
+
+  encrypt:
+    desc: Encrypt the DATA disk with LUKS
+    internal: true
+    cmds:
+      - |
+        if [ {{.DATA_DISK_OPERATIONS_ENABLED }} != "true" ]; then
+          echo "Data disk operations are disabled"
+          exit 0
+        else
+          ansible-playbook -i {{.K8S_CLUSTER_INVENTORY}} --user {{.SSH_USER}} \
+          --become --become-user=root {{.USER_WORKING_DIR}}/ansible/luks-playbook.yml \
+          --private-key=/tmp/{{.PRIVATE_KEY_NAME}}
+        fi
+
+  filesystem:
+    desc: Create FS and mount operations
+    internal: true
+    cmds:
+      - |
+        if [ {{.DATA_DISK_OPERATIONS_ENABLED }} != "true" ]; then
+          echo "Data disk operations are disabled"
+          exit 0
+        else
+          if [[ "{{.DATA_DISK_MANUAL_ENCRYPTION}}" == "false" ]]; then
+            ansible-playbook -i {{.K8S_CLUSTER_INVENTORY}} --user {{.SSH_USER}} \
+            --become --become-user=root {{.USER_WORKING_DIR}}/ansible/storage-fs-playbook.yml \
+            --private-key=/tmp/{{.PRIVATE_KEY_NAME}}
+          else
+            echo "DATA_DISK_MANUAL_ENCRYPTION is set to True. Skipping creation of filesystem."
+          fi
+        fi
+
+  mount:
+    desc: Mount only operations
+    internal: true
+    cmds:
+      - |
+        if [ {{.DATA_DISK_OPERATIONS_ENABLED }} != "true" ]; then
+          echo "Data disk operations are disabled"
+          exit 0
+        else
+          ansible-playbook -i {{.K8S_CLUSTER_INVENTORY}} --user {{.SSH_USER}} \
+          --become --become-user=root {{.USER_WORKING_DIR}}/ansible/storage-fs-playbook.yml \
+          --private-key=/tmp/{{.PRIVATE_KEY_NAME}}
+        fi
+
+  deploy:
+    desc: Configure storage components
+    internal: true
+    cmds:
+      - task: storage-vars
+      - task: inventory
+      - task: preflight
+      - task: encrypt
+      - task: filesystem
+      - task: mount

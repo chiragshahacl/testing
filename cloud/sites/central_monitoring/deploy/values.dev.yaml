@@ -1,0 +1,37 @@
+image:
+  repository: 104472814609.dkr.ecr.us-east-2.amazonaws.com/central-monitoring
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets:
+  - name: ecr
+
+ingress:
+  enabled: true
+  istio: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+  hosts:
+    - host: cms.dev.tucana.sibel.health
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls:
+    - secretName: cms-dev-tucana-sibel-health-tls
+      hosts:
+        - cms.dev.tucana.sibel.health
+
+app:
+  config:
+    LOG_LEVEL: "INFO"
+    NODE_ENV: development
+    APP_URL: "https://api.dev.tucana.sibel.health"
+    WSS_URL: "wss://api.dev.tucana.sibel.health"
+    CMS_URLS: "https://cms.dev.tucana.sibel.health http://localhost:3000"
+    CMS_WSS_URLS: "wss://cms.dev.tucana.sibel.health ws://localhost:3000"
+    HOSPITAL_TZ: "America/Chicago"
+    MAX_NUMBER_BEDS: "64"
+    HEALTHCHECK_INTERVAL: "30000"
+    HOSPITAL_TITLE: "Sibel Hospital"
+    IGNORE_BUTTERWORTH_FILTERS: "0"

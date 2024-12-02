@@ -1,0 +1,3 @@
+controller:
+  volumeModificationFeature:
+    enabled: true

@@ -1,0 +1,214 @@
+# https://taskfile.dev
+version: '3'
+
+vars:
+  INFRA_DIR: '{{.USER_WORKING_DIR}}/k8s-infra'
+  CREDS_DIR: '/tmp/creds'
+
+tasks:
+
+  create-creds-dir:
+    desc: Create directory for all credentials
+    internal: true
+    cmds:
+      - mkdir -p {{.CREDS_DIR}}
+
+  storage:
+    desc: Deploy local-path-provisioner
+    internal: true
+    cmds:
+      - kubectl apply -f {{.INFRA_DIR}}/local-path-storage.yaml
+
+  ingress-nginx:
+    desc: Deploy ingress-nginx
+    internal: true
+    cmds:
+      - echo "Certificate for ingress-nginx"
+      - >
+        if [[ -f "/tmp/{{.LB_INGRESS_CERT_PRIVATE_KEY}}" && -f "/tmp/{{.LB_INGRESS_CERT_PUBLIC_KEY}}" ]]; then
+          kubectl create secret tls ingress-tls \
+          --namespace ingress-nginx \
+          --key="/tmp/{{.LB_INGRESS_CERT_PRIVATE_KEY}}" \
+          --cert="/tmp/{{.LB_INGRESS_CERT_PUBLIC_KEY}}" \
+          -o yaml --dry-run=client > {{.INFRA_DIR}}/ingress-certificate.yaml;
+          kubectl create ns ingress-nginx || true;
+          kubectl apply -f {{.INFRA_DIR}}/ingress-certificate.yaml
+        fi
+      - echo "Deploy ingress-nginx"
+      - >
+        helm upgrade -i ingress-nginx {{.INFRA_DIR}}/charts/ingress-nginx-4.11.1.tgz
+        --namespace ingress-nginx  --create-namespace
+        -f {{.INFRA_DIR}}/ingress-nginx.yaml
+      - sleep 60 # wait for ingress-nginx to be ready
+
+  k8s-dashboard:
+    desc: Deploy k8s dashboard
+    internal: true
+    cmds:
+      - echo "Deploy k8s dashboard"
+      - |
+        export INGRESS_DOMAIN="{{.LB_INGRESS_DOMAIN}}";
+        envsubst < {{.INFRA_DIR}}/dashboard-values.yaml > {{.INFRA_DIR}}/dashboard-values.yaml.tmp && \
+        mv {{.INFRA_DIR}}/dashboard-values.yaml.tmp {{.INFRA_DIR}}/dashboard-values.yaml;
+      - >
+        helm upgrade -i kubernetes-dashboard {{.INFRA_DIR}}/charts/kubernetes-dashboard-6.0.6.tgz
+        --namespace dashboard  --create-namespace
+        -f {{.INFRA_DIR}}/dashboard-values.yaml
+      - echo "Create dashboard user"
+      - kubectl apply -f {{.INFRA_DIR}}/dashboard-user.yaml
+      - sleep 30 # wait for k8s token for dahboard user
+      - kubectl get secret -n dashboard dashboard-central-hub-admin-token -ojsonpath={.data.token} | base64 -d > {{.CREDS_DIR}}/dashboard-token.txt
+
+  central-hub-ns:
+    desc: Create central-hub ns
+    internal: true
+    cmds:
+      - kubectl create ns central-hub || true
+
+  kafka:
+    desc: Deploy Strimzi operator and Kafka cluster with users and topics
+    internal: true
+    cmds:
+      - echo "Deploy Strimzi Operator"
+      - >
+        helm upgrade -i strimzi {{.INFRA_DIR}}/charts/strimzi-kafka-operator-helm-3-chart-0.42.0.tgz
+        --namespace strimzi --create-namespace
+        --set watchNamespaces="{central-hub}"
+      - echo "Deploy Kafka cluster"
+      - kubectl apply -f {{.INFRA_DIR}}/kafka-cluster.yaml
+      - echo "Create Kafka topics"
+      - kubectl apply -f {{.INFRA_DIR}}/kafka-topics.yaml
+      - echo "Create Kafka users"
+      - kubectl apply -f {{.INFRA_DIR}}/kafka-user-apps.yaml
+
+  pg:
+    desc: Deploy Kubegres operator and PG database
+    internal: true
+    cmds:
+      - echo "Deploy Kubegres Operator"
+      - kubectl apply -f {{.INFRA_DIR}}/kubegres.yaml
+      - echo "Password for Postgres database"
+      - >
+        if [ ! -f {{.CREDS_DIR}}/postgres.txt ]; then
+          echo "Generating new creds for postgres..."
+          PGSU=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30)
+          PGREPL=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30)
+          PGCRYPTO=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30)
+          kubectl create secret generic postgres-creds -n central-hub \
+            --from-literal=superUserPassword=${PGSU} \
+            --from-literal=replicationUserPassword=${PGREPL} \
+            --from-literal=crypto=${PGCRYPTO} \
+            -o yaml --dry-run=client > {{.INFRA_DIR}}/postgres-creds.yaml
+          echo "superUserPassword = ${PGSU}" > {{.CREDS_DIR}}/postgres.txt
+          echo "replicationUserPassword = ${PGREPL}" >> {{.CREDS_DIR}}/postgres.txt
+          echo "crypto = ${PGCRYPTO}" >> {{.CREDS_DIR}}/postgres.txt
+
+        elif [ ! -f {{.INFRA_DIR}}/postgres-creds.yaml ]; then
+          echo "Creating k8s secret from the existing postgres creds..."
+          PGSU=$(cat {{.CREDS_DIR}}/postgres.txt | grep superUserPassword | cut -d'=' -f2 | xargs)
+          PGREPL=$(cat {{.CREDS_DIR}}/postgres.txt | grep replicationUserPassword | cut -d'=' -f2 | xargs)
+          PGCRYPTO=$(cat {{.CREDS_DIR}}/postgres.txt | grep crypto | cut -d'=' -f2 | xargs)
+          kubectl create secret generic postgres-creds -n central-hub \
+            --from-literal=superUserPassword=${PGSU} \
+            --from-literal=replicationUserPassword=${PGREPL} \
+            --from-literal=crypto=${PGCRYPTO} \
+            -o yaml --dry-run=client > {{.INFRA_DIR}}/postgres-creds.yaml
+
+        else
+          echo "Manifest with postgres creds already exist, applying it..."
+        fi
+      - kubectl apply -f {{.INFRA_DIR}}/postgres-creds.yaml
+      - echo "Deploy PG database"
+      - kubectl apply -f {{.INFRA_DIR}}/postgres-db.yaml
+      - sleep 60 # wait for PG to be ready
+
+  redis:
+    desc: Deploy redis
+    internal: true
+    cmds:
+      - echo "Password for Redis"
+      - >
+        if [ ! -f {{.CREDS_DIR}}/redis.txt ]; then
+          echo "Creating new creds for redis..."
+          REDISADM=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30)
+          kubectl create secret generic redis-creds -n central-hub \
+            --from-literal=REDIS_PASSWORD=${REDISADM} \
+            -o yaml --dry-run=client > {{.INFRA_DIR}}/redis-creds.yaml
+          echo "REDIS_PASSWORD = ${REDISADM}" > {{.CREDS_DIR}}/redis.txt
+
+        elif [ ! -f {{.INFRA_DIR}}/redis-creds.yaml ]; then
+          echo "Creating k8s secret from existing creds..."
+          REDISADM=$(cat {{.CREDS_DIR}}/redis.txt | grep REDIS_PASSWORD | cut -d'=' -f2 | xargs)
+          kubectl create secret generic redis-creds -n central-hub \
+            --from-literal=REDIS_PASSWORD=${REDISADM} \
+            -o yaml --dry-run=client > {{.INFRA_DIR}}/redis-creds.yaml
+
+        else
+          echo "Manifest with redis creds already exist, applying it..."
+        fi
+      - kubectl apply -f {{.INFRA_DIR}}/redis-creds.yaml
+      - echo "Deploy Redis"
+      - kubectl apply -f {{.INFRA_DIR}}/redis.yaml
+
+  monitoring:
+    desc: Deploy monitoring
+    internal: true
+    cmds:
+      - >
+        if [ {{.MONITORING_ENABLED }} != "true" ]; then
+          echo "Monitoring is disabled"
+          exit 0
+        else
+          echo "Deploy Loki stack"
+          helm upgrade -i loki {{.INFRA_DIR}}/charts/loki-stack-2.10.2.tgz \
+          --namespace monitoring --create-namespace \
+          -f {{.INFRA_DIR}}/mon-loki-stack.yaml
+
+          echo "Deploy Prometheus stack"
+          export INGRESS_DOMAIN="{{.LB_INGRESS_DOMAIN}}";
+          envsubst < {{.INFRA_DIR}}/mon-prom-stack.yaml > {{.INFRA_DIR}}/mon-prom-stack.yaml.tmp && mv {{.INFRA_DIR}}/mon-prom-stack.yaml.tmp {{.INFRA_DIR}}/mon-prom-stack.yaml;
+          for i in $(ls -1 {{.INFRA_DIR}}/charts/crds); do kubectl apply --server-side -f {{.INFRA_DIR}}/charts/crds/$i; done;
+
+          if [ ! -f {{.CREDS_DIR}}/grafana.txt ]; then
+            echo "Creating new creds for grafana..."
+            GRAFANA_PASSWORD=$(tr -dc "A-Za-z0-9@#%&_+" </dev/urandom | head -c 30)
+            echo "GRAFANA_PASSWORD = ${GRAFANA_PASSWORD}" > {{.CREDS_DIR}}/grafana.txt
+          else
+            echo "Credentials for grafana already exist, re-using it..."
+          fi
+          GRAFANA_PASSWORD=$(cat {{.CREDS_DIR}}/grafana.txt | grep GRAFANA_PASSWORD | cut -d'=' -f2 | xargs)
+
+          helm upgrade -i kube-prometheus-stack {{.INFRA_DIR}}/charts/kube-prometheus-stack-61.8.0.tgz \
+          --namespace monitoring --create-namespace \
+          --set grafana.adminPassword=${GRAFANA_PASSWORD} \
+          -f {{.INFRA_DIR}}/mon-prom-stack.yaml --skip-crds
+
+          echo "Provision dashboards"
+          kubectl apply -f {{.INFRA_DIR}}/mon-loki-dashboard.yaml
+          kubectl apply -f {{.INFRA_DIR}}/mon-prom-dashboard.yaml
+        fi
+
+  cilium-policies:
+    desc: Apply Cilium policies
+    internal: true
+    cmds:
+      - |
+        export LB_INGRESS_IP="{{.LB_INGRESS_IP}}";
+        envsubst < {{.INFRA_DIR}}/cilium-host-policy-mirth.yaml > {{.INFRA_DIR}}/cilium-host-policy-mirth.yaml.tmp && \
+        mv {{.INFRA_DIR}}/cilium-host-policy-mirth.yaml.tmp {{.INFRA_DIR}}/cilium-host-policy-mirth.yaml;
+      - kubectl apply -f {{.INFRA_DIR}}/cilium-host-policy-mirth.yaml
+
+  deploy:
+    desc: Deploy infra components
+    internal: true
+    cmds:
+      - task: create-creds-dir
+      - task: storage
+      - task: central-hub-ns
+      - task: ingress-nginx
+      - task: k8s-dashboard
+      - task: kafka
+      - task: pg
+      - task: redis
+      - task: monitoring
+      - task: cilium-policies

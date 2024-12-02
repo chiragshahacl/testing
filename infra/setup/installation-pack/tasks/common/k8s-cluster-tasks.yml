@@ -1,0 +1,82 @@
+# https://taskfile.dev
+version: '3'
+
+vars:
+  K8S_CLUSTER_INVENTORY: '{{.USER_WORKING_DIR}}/ansible/k8s-inventory.ini'
+  CREDS_DIR: '/tmp/creds'
+
+tasks:
+
+  create-creds-dir:
+    desc: Create directory for all credentials
+    internal: true
+    cmds:
+      - mkdir -p {{.CREDS_DIR}}
+
+  rke2-vars:
+    desc: Prepare Ansible playbook vars
+    internal: true
+    cmds:
+      - |
+        if [ -n "{{.LB_K8S_API_FQDN}}" ]; then
+          sed -i -e '/rke2_additional_sans/s/^# //g' \
+              -e '/LB_K8S_API_FQDN/s/^# //g' \
+              -e 's/LB_K8S_API_FQDN/{{.LB_K8S_API_FQDN}}/' \
+              -e '/LB_INGRESS_IP/s/^# //g' \
+              -e 's/LB_INGRESS_IP/{{.LB_INGRESS_IP}}/' {{.USER_WORKING_DIR}}/ansible/k8s-install-vars-{{.INSTALLATION_TYPE}}.yml
+        else
+          sed -i -e '/rke2_additional_sans/s/^# //g' \
+              -e '/LB_INGRESS_IP/s/^# //g' \
+              -e 's/LB_INGRESS_IP/{{.LB_INGRESS_IP}}/' {{.USER_WORKING_DIR}}/ansible/k8s-install-vars-{{.INSTALLATION_TYPE}}.yml
+        fi
+
+  rke2-preflight:
+    desc: Checks before Kubernetes cluster install
+    internal: true
+    cmds:
+      - |
+        ansible-inventory --inventory {{.K8S_CLUSTER_INVENTORY}} --list;
+        ansible all --inventory {{.K8S_CLUSTER_INVENTORY}} -m ping \
+        --user {{.SSH_USER}} \
+        --private-key=/tmp/{{.PRIVATE_KEY_NAME}} \
+        --ssh-common-args='-o StrictHostKeyChecking=no'
+
+  rke2-cluster-install:
+    desc: Kubernetes cluster install
+    internal: true
+    cmds:
+      - |
+        ansible-playbook -i {{.K8S_CLUSTER_INVENTORY}} --user {{.SSH_USER}} \
+        --extra-vars "@{{.USER_WORKING_DIR}}/ansible/k8s-install-vars-{{.INSTALLATION_TYPE}}.yml" \
+        --extra-vars "central_hub_release={{.CENTRAL_HUB_RELEASE_TAG}}" \
+        --become --become-user=root {{.USER_WORKING_DIR}}/ansible/k8s-install-playbook.yml \
+        --private-key=/tmp/{{.PRIVATE_KEY_NAME}}
+
+  rke2-cluster-kubeconfig:
+    desc: Get Kubernetes kubeconfig file
+    internal: true
+    cmds:
+      - |
+        export CONTROLLER_IP=$(cat {{.K8S_CLUSTER_INVENTORY}} | grep ansible_host | head -1 | cut -d' ' -f2 | cut -d'=' -f2 | xargs);
+        export LB_K8S_API_FQDN={{.LB_K8S_API_FQDN}};
+        export K8S_API_HOST=${LB_K8S_API_FQDN:-$CONTROLLER_IP};
+        sed -i "s^server:.*^server: https://${K8S_API_HOST}:6443^" {{.CREDS_DIR}}/kubeconfig
+      - mkdir -p ~/.kube/ ; cp -rp {{.CREDS_DIR}}/kubeconfig ~/.kube/config
+
+  rke2-cluster-test-connection:
+    desc: Test Kubernetes kubeconfig file
+    internal: true
+    cmds:
+      - kubectl version
+      - kubectl get no
+
+  deploy:
+    desc: Deploy infra components
+    internal: true
+    cmds:
+      - task: create-creds-dir
+      - task: rke2-vars
+      - task: rke2-preflight
+      - task: rke2-cluster-install
+      - task: rke2-cluster-kubeconfig
+      - task: rke2-cluster-test-connection

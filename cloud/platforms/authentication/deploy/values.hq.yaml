@@ -1,0 +1,16 @@
+image:
+  # dev registry for now
+  repository: 104472814609.dkr.ecr.us-east-2.amazonaws.com/authentication
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets:
+  - name: ecr
+
+app:
+  config:
+    ENVIRONMENT: "hq"
+    DJANGO_SUPERUSER_EMAIL: "admin@sibelhealth.com"
+    DJANGO_SUPERUSER_USERNAME: "admin@sibelhealth.com"
+    ADMIN_EMAIL: "admin@sibelhealth.com"
+    SENTRY_DSN: "https://30c44fe19e814fd097732ef45574f9aa@o4504039729135616.ingest.sentry.io/4504956339879936"

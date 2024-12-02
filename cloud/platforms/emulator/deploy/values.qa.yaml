@@ -1,0 +1,33 @@
+image:
+  repository: 678674662538.dkr.ecr.us-east-2.amazonaws.com/emulator
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets:
+  - name: ecr
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+  hosts:
+    - host: api.qa.tucana.sibel.health
+      paths:
+        - path: /emulator
+          pathType: ImplementationSpecific
+  tls:
+    - secretName: api-qa-tucana-sibel-health-tls
+      hosts:
+        - api.qa.tucana.sibel.health
+
+app:
+  config:
+    ENVIRONMENT: "qa"
+    WEB_GATEWAY_URL: "https://api.qa.tucana.sibel.health/web"
+    CORS_ORIGINS: "https://cms.qa.tucana.sibel.health,http://localhost:3000"
+    BP_MESSAGE_INTERVAL_IN_SECONDS: "240"
+    TEMPERATURE_MESSAGE_INTERVAL_IN_SECONDS: "240"
+    POSITION_MESSAGE_INTERVAL_IN_SECONDS: "240"
+    DEVICE_MESSAGE_INTERVAL_IN_SECONDS: "240"
+

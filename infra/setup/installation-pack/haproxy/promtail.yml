@@ -1,0 +1,25 @@
+server:
+  log_level: info
+  log_format: logfmt
+  http_listen_port: 3101
+
+clients:
+  - url: https://cms.${INGRESS_DOMAIN}:3100/loki/api/v1/push
+    basic_auth:
+      username: loki-push
+      password_file: /tmp/loki-password
+
+positions:
+  filename: /run/positions.yaml
+
+scrape_configs:
+  - job_name: haproxy-logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: haproxy-logs
+          __path__: /var/lib/docker/containers/**/*.log
+
+tracing:
+  enabled: false

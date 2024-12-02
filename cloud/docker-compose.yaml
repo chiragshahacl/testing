@@ -1,0 +1,273 @@
+---
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.2
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  broker:
+    image: confluentinc/cp-kafka:7.3.2
+    container_name: broker
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    depends_on:
+      - zookeeper
+    healthcheck:
+      test: nc -z broker 29092 || exit -1
+      start_period: 15s
+      interval: 5s
+      timeout: 10s
+      retries: 10
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://broker:29092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+
+  redis:
+    image: redis/redis-stack:latest
+    container_name: redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+    ports:
+      - "6379:6379"
+
+  postgres:
+    image: postgres
+    container_name: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: cantguessthis
+
+  realtime:
+    image: sibel/realtime
+    container_name: realtime
+    build:
+      dockerfile: gateways/realtime/Dockerfile
+      args:
+        SIBEL_VERSION: "v0.0.0.local"
+    env_file: gateways/realtime/.env
+    depends_on:
+      broker:
+        condition: service_healthy
+    environment:
+      WEB_BASE_URL: "http://web:8000/web"
+      KAFKA_HOST: "broker"
+      KAFKA_PORT: "29092"
+      APPLICATION_PORT: "8001"
+    restart: always
+    ports:
+      - "8001:8001"
+
+  web:
+    image: sibel/web
+    container_name: web
+    build:
+      dockerfile: gateways/web/Dockerfile
+      args:
+        SIBEL_VERSION: "v0.0.0.local"
+    env_file: gateways/web/.env
+    environment:
+      APPLICATION_PORT: "8000"
+      AUDIT_PLATFORM_BASE_URL: "http://audit-trail:8003/audit-trail"
+      AUTH_PLATFORM_BASE_URL: "http://authentication:8004/api"
+      DEVICE_PLATFORM_BASE_URL: "http://patient:8007/device"
+      PATIENT_PLATFORM_BASE_URL: "http://patient:8007/patient"
+      EHR_PLATFORM_BASE_URL: "http://mirth:6662"
+      KAFKA_HOST: "broker"
+      KAFKA_PORT: "29092"
+      CORS_ORIGINS: "*,"
+      REDIS_HOST: "redis"
+    restart: always
+    ports:
+      - "8000:8000"
+
+  audit-trail:
+    image: sibel/audit-trail
+    container_name: audit-trail
+    build:
+      dockerfile: platforms/audit_trail/Dockerfile
+      args:
+        SIBEL_VERSION: "v0.0.0.local"
+    env_file: platforms/audit_trail/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: "postgres"
+      APPLICATION_PORT: "8003"
+      KAFKA_HOST: "broker"
+      KAFKA_PORT: "29092"
+    restart: always
+    ports:
+      - "8003:8003"
+
+  authentication:
+    image: sibel/authentication
+    container_name: authentication
+    build:
+      dockerfile: platforms/authentication/Dockerfile
+      args:
+        SIBEL_VERSION: "v0.0.0.local"
+    env_file: platforms/authentication/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      REDIS_HOST: "redis"
+      DB_HOST: "postgres"
+      APPLICATION_PORT: "8004"
+      KAFKA_HOST: "broker"
+      KAFKA_PORT: "29092"
+      DJANGO_SUPERUSER_EMAIL: "admin@sibelhealth.com"
+      DJANGO_SUPERUSER_USERNAME: "admin@sibelhealth.com"
+      DJANGO_SUPERUSER_PASSWORD: "pass"
+    restart: always
+    ports:
+      - "8004:8004"
+
+  emulator:
+    image: sibel/emulator
+    container_name: emulator
+    build:
+      dockerfile: platforms/emulator/Dockerfile
+      args:
+        SIBEL_VERSION: "v0.0.0.local"
+    env_file: platforms/emulator/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      APPLICATION_PORT: "8005"
+      KAFKA_HOST: "broker"
+      KAFKA_PORT: "29092"
+      TOTAL_PATIENTS: "1"
+      PATIENT_PLATFORM_URL: "http://patient:8007/patient"
+      WEB_GATEWAY_URL: "http://web:8000/web"
+      DEVICE_PLATFORM_URL: "http://patient:8007/device"
+      ADMIN_USERNAME: "admin@sibelhealth.com"
+      ADMIN_PASSWORD: "pass"
+    restart: always
+    ports:
+      - "8005:8005"
+
+  patient:
+    image: sibel/patient
+    container_name: patient
+    build:
+      dockerfile: platforms/patient/Dockerfile
+      args:
+        SIBEL_VERSION: "v0.0.0.local"
+    env_file: platforms/patient/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      REDIS_HOST: "redis"
+      DB_HOST: "postgres"
+      APPLICATION_PORT: "8007"
+      KAFKA_HOST: "broker"
+      KAFKA_PORT: "29092"
+    restart: always
+    ports:
+      - "8007:8007"
+
+  config:
+    image: sibel/config
+    container_name: config
+    build:
+      dockerfile: platforms/config/Dockerfile
+      args:
+        SIBEL_VERSION: "v0.0.0.local"
+    env_file: platforms/config/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      REDIS_HOST: "redis"
+      DB_HOST: "postgres"
+      APPLICATION_PORT: "8007"
+      KAFKA_HOST: "broker"
+      KAFKA_PORT: "29092"
+    restart: always
+    ports:
+      - "8008:8008"
+
+  cms:
+    image: sibel/cms
+    container_name: cms
+    build:
+      dockerfile: sites/central_monitoring/Dockerfile
+      args:
+        SIBEL_VERSION: "v0.0.0.local"
+    env_file: sites/central_monitoring/.env.development
+    environment:
+      APP_URL: "http://localhost:8000/"
+      WSS_URL: "ws://localhost:8001"
+      NODE_ENV: "production"
+    ports:
+      - "3000:3000"
+
+  mirth:
+    image: sibel/mirth
+    container_name: mirth
+    platform: linux/arm64
+    build:
+      dockerfile: gateways/mirth/Dockerfile
+      args:
+        SIBEL_VERSION: "v0.0.0.local"
+    ports:
+      - "8443:8443"
+      - "8080:8080"
+      - "6662:6662"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      DATABASE: "postgres"
+      DATABASE_URL: "jdbc:postgresql://postgres:5432/mirthdb"
+      DATABASE_USERNAME: "postgres"
+      DATABASE_PASSWORD: "cantguessthis"
+      MLLP_HOST: "emulator"
+      MLLP_PORT: "2575"
+      CONF_SERVICE_URL: "http://authentication:8004/api/configuration/"
+      AUTH_TOKEN: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiaWF0IjoxNzE4MDI3NTMwLCJleHAiOjIxNTAwMjc1MzAsImp0aSI6ImQ1MThiMzQ2NDQ4ZmFkNGJmNTY3NmMxM2VkOGJkYjhiIiwidXNlcl9pZCI6ImJjNjg4M2IzLTc2MzQtNDRkYy04MWNhLTQ4MTkxMzJkYTI5YyIsInVzZXJuYW1lIjoiYWRtaW5Ac2liZWxoZWFsdGguY29tIiwidGVuYW50X2lkIjoic2liZWwiLCJncm91cHMiOlsiYWRtaW4iXSwiYXVkIjoidHVjYW5hIn0.izGLAZqSkPGTnSfUcOQaDBz0Gzl1DYMQE98R_-FKIRdfuacBP3EPkqt3k-nP4xD4foqWgeqLFaVNpQEjyEZYgm77h3wstvWAezwDYsUkIHfp5XsL73LzYElzk8QvyHzVHDcSS4bMSord1M85Tn-i2QA4OWJMIwa5FC1XJd3u1DycfOrYqlWdbdIg7613r1Ah45oGJDnTrIXaOrX9GFV8CcvXZmTImyKs_hZ8Y2Jp8UmTVapBmOxu-tBYJrqWAdrFYDHZZLeLg8gsCl3JSU8_ruCiTSY1PkbUzOWepFZJpR__LYn8o1q3Nki9R3vKMKQudjPYdRDNOqyevtrjdTWp6oBgLf-Eg9nee1SHIsafof0cDAXfkIbxl8mPTijrIW2P5CevLYdW_xDnaa7BWtdK5Scp2jdAOlhLhoHp8MwS3Bw803GkHmG2Q28mxG1rCsDLeQuMO6YRgSCRLnAIFSCPdouTjhn5mfJWketJ9BVK5Eoh7qgXz7kpE93aZzU4l49oI1RdDxoxM1TbKy7LQvQnlzAvSqOzPtRHI1Cpe_jNzeOeQ05izlwtEMBmWeZvSFRmXBoDpo1UQIzAfEgURpRIJiOdFMJvR89z7VnkAjWkxC2Oo3vd5KefcXW7M30m7tGW9dLkh619LnTzK_YoQMH5nCQUc1V_dMA2naTMbFF83pk"
+      VMOPTIONS: "-Xmx1G"
+      MLLP_EXPORT_INTERVAL_MINUTES: "5"
+      ENDPOINT: "https://localhost:8443/mirth/api"
+      MIRTHSYNC_PATH: "/opt/connect/mirthsync-3.1.0/bin"
+      USER: "admin"
+      PASS: "admin"
+      CONFIG_PATH: "/opt/connect/tucana_config"
+      KEYSTORE_STOREPASS: "custom"
+      KEYSTORE_KEYPASS: "custom"
+
+  rkc:
+    image: sibel/rkc
+    container_name: rkc
+    build:
+      dockerfile: platforms/rkc/Dockerfile
+      args:
+        SIBEL_VERSION: "v0.0.0.local"
+    environment:
+      KAFKA_SERVER: "broker:29092"
+      KAFKA_TOPICS: vitals
+      KAFKA_GROUP: kconnect
+      FLUSH_TIMEOUT_SECONDS: 15
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: postgres
+      DB_PASSWORD: cantguessthis
+      DB_NAME: test_patient
+      VITALS_FLUSH_ENDPOINT: http://mirth:6662/consume/

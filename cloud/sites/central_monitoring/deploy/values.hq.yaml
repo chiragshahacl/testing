@@ -1,0 +1,42 @@
+image:
+  # dev registry for now
+  repository: 104472814609.dkr.ecr.us-east-2.amazonaws.com/central-monitoring
+  pullPolicy: IfNotPresent
+  tag: "0881f8ad36d8717040fe33a1dcc6a009029b5105"
+
+imagePullSecrets:
+  - name: ecr
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+  hosts:
+    - host: cms.hq.tucana.sibel.health
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls:
+    - secretName: star-hq-tucana-sibel-health-tls
+      hosts:
+        - cms.hq.tucana.sibel.health
+
+app:
+  config:
+    LOG_LEVEL: "INFO"
+    NODE_ENV: development
+    APP_URL: "https://api.hq.tucana.sibel.health"
+    WSS_URL: "wss://api.hq.tucana.sibel.health"
+    CMS_URLS: "https://cms.hq.tucana.sibel.health"
+    CMS_WSS_URLS: "wss://cms.hq.tucana.sibel.health"
+    HOSPITAL_TZ: "America/Chicago"
+    MAX_NUMBER_BEDS: "64"
+    HEALTHCHECK_INTERVAL: "30000"
+    HOSPITAL_TITLE: "Sibel Hospital"
+    IGNORE_BUTTERWORTH_FILTERS: "0"
+
+autoscaling:
+  enabled: true
+  minReplicas: 1
+  maxReplicas: 1

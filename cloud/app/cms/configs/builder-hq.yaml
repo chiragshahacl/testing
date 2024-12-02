@@ -1,0 +1,8 @@
+appId: central.monitoring.desktop.hq
+productName: CMSKiosk-hq
+directories:
+  output: dist/hq
+
+extraMetadata:
+  env: hq
+  APP_URL: https://cms.hq.tucana.sibel.health

@@ -1,0 +1,14 @@
+image:
+  repository: 620908046246.dkr.ecr.us-east-2.amazonaws.com/authentication
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets:
+  - name: ecr
+
+app:
+  config:
+    ENVIRONMENT: "prod"
+    DJANGO_SUPERUSER_EMAIL: "admin@sibelhealth.com"
+    DJANGO_SUPERUSER_USERNAME: "admin@sibelhealth.com"
+    ADMIN_EMAIL: "admin@sibelhealth.com"

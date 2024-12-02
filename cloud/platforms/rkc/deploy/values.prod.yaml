@@ -1,0 +1,11 @@
+image:
+  repository: 620908046246.dkr.ecr.us-east-2.amazonaws.com/rkc
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets:
+  - name: ecr
+
+app:
+  config:
+    ENVIRONMENT: "prod"

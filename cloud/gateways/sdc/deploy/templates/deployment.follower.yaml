@@ -1,0 +1,112 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "deploy.fullname" . }}-follower
+  labels:
+    {{- include "deploy.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount.follower }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "deploy.selectorLabels" . | nindent 6 }}
+  strategy:
+    type: {{ .Values.updateStrategy.type }}
+    {{- if eq .Values.updateStrategy.type "RollingUpdate" }}
+    rollingUpdate:
+      maxSurge: {{ .Values.updateStrategy.rollingUpdate.maxSurge }}
+      maxUnavailable: {{ .Values.updateStrategy.rollingUpdate.maxUnavailable }}
+    {{- end }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "deploy.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "deploy.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      dnsPolicy: ClusterFirstWithHostNet
+      hostNetwork: true
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.follower.port }}
+              protocol: TCP
+          {{- if .Values.livenessProbe }}
+          livenessProbe: {{- toYaml .Values.livenessProbe | nindent 12 }}
+          {{- end }}
+          {{- if .Values.readinessProbe }}
+          readinessProbe: {{- toYaml .Values.readinessProbe | nindent 12 }}
+          {{- end }}
+          env:
+          {{- if .Values.app.extraEnvs -}}
+          {{ toYaml .Values.app.extraEnvs | nindent 12 }}
+          {{- end }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "deploy.fullname" . }}-follower
+          volumeMounts:
+            - name: kafka-user-certs
+              mountPath: /kafka-user-certs/
+              readOnly: true
+            - name: kafka-cluster-certs
+              mountPath: /kafka-cluster-certs/
+              readOnly: true
+            {{ if and .Values.app.config.all.CRYPTO_USER_KEY_PATH .Values.app.config.all.CRYPTO_USER_CERT_PATH .Values.app.config.all.CRYPTO_CA_CERT_PATH -}}
+            - name: sdc-certs
+              mountPath: /sdc-certs/
+              readOnly: true
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources.follower | nindent 12 }}
+      volumes:
+        - name: kafka-user-certs
+          secret:
+            secretName: kafka-user
+            items:
+              - key: user.p12
+                path: ./user.p12
+        - name: kafka-cluster-certs
+          secret:
+            secretName: kafka-cluster-cluster-ca-cert
+            items:
+              - key: ca.crt
+                path: ./ca.crt
+        {{ if and .Values.app.config.all.CRYPTO_USER_KEY_PATH .Values.app.config.all.CRYPTO_USER_CERT_PATH .Values.app.config.all.CRYPTO_CA_CERT_PATH -}}
+        - name: sdc-certs
+          secret:
+            secretName: sdc-certs
+            items:
+              - key: CRYPTO_USER_KEY
+                path: ./consumerLeaf1.key
+              - key: CRYPTO_USER_CERT
+                path: ./consumerLeaf1.crt
+              - key: CRYPTO_CA_CERT
+                path: ./intermediateCA.crt
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

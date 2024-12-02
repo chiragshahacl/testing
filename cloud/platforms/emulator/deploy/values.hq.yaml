@@ -1,0 +1,35 @@
+replicaCount: 0
+
+image:
+  # dev registry for now
+  repository: 104472814609.dkr.ecr.us-east-2.amazonaws.com/emulator
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets:
+  - name: ecr
+
+ingress:
+  enabled: true
+  className: "nginx"
+  hosts:
+    - host: api.hq.tucana.sibel.health
+      paths:
+        - path: /emulator
+          pathType: ImplementationSpecific
+  tls:
+    - secretName: star-hq-tucana-sibel-health-tls
+      hosts:
+        - api.hq.tucana.sibel.health
+
+app:
+  config:
+    ENVIRONMENT: "hq"
+    WEB_GATEWAY_URL: "https://api.hq.tucana.sibel.health/web"
+    CORS_ORIGINS: "https://cms.hq.tucana.sibel.health,http://localhost:3000"
+
+
+autoscaling:
+  enabled: false
+  minReplicas: 0
+  maxReplicas: 0

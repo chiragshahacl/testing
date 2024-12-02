@@ -1,0 +1,154 @@
+image:
+  repository: 104472814609.dkr.ecr.us-east-2.amazonaws.com/sdc
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+replicaCount:
+  leader: 1
+  follower: 3
+  default: 0
+
+nameOverride: ""
+fullnameOverride: ""
+
+updateStrategy:
+  type: Recreate
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+securityContext: {}
+
+service:
+  type: ClusterIP
+  leader:
+    port: 80
+  follower:
+    port: 8080
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: gateway.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+
+resources:
+  leader:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  follower:
+    requests:
+      cpu: 2000m
+      memory: 2048Mi
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+
+autoscaling:
+  leader:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 1
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+  follower:
+    enabled: false
+    minReplicas: 3
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 90
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+app:
+  config:
+    all:
+      LOG_LEVEL: "INFO"
+      ENVIRONMENT: "prod"
+      KAFKA_TOPIC_VITALS: "vitals"
+      KAFKA_TOPIC_DEVICE: "events-sdc"
+      KAFKA_TOPIC_DEVICE_COMMANDS: "device-commands-requests"
+      KAFKA_TOPIC_DEVICE_COMMANDS_RESPONSE: "device-commands-responses"
+      KAFKA_TOPIC_ALERT: "alerts"
+      KAFKA_TOPIC_TECHNICAL_ALERT: "technical-alerts"
+      KAFKA_TOPIC_SDC_REALTIME_STATE: "sdc-realtime-state"
+      KAFKA_TOPIC_PATIENT_EVENTS: "events-patient"
+      KAFKA_HOST: "kafka-cluster-kafka-bootstrap"
+      KAFKA_PORT: "9093"
+      REDIS_HOST: "redis"
+      REDIS_PORT: "6379"
+      REDIS_USERNAME: "default"
+      PROBE_INTERVAL: "15"
+      CLAIM_INTERVAL: "3"
+      KAFKA_CA_FILE_PATH: "/kafka-cluster-certs/ca.crt"
+      KAFKA_KEY_FILE_PATH: "/kafka-user-certs/user.p12"
+      REALTIME_STATE_MESSAGE_DURATION: "2"
+      CRYPTO_USER_KEY_PATH: "/sdc-certs/consumerLeaf1.key"
+      CRYPTO_USER_CERT_PATH: "/sdc-certs/consumerLeaf1.crt"
+      CRYPTO_CA_CERT_PATH: "/sdc-certs/intermediateCA.crt"
+      FOLLOWER_MAX_CONNECTED_DEVICES: "22"
+      PATIENT_SERVICE_URL: "http://patient"
+      EHR_SERVICE_URL: "http://mirth:6662"
+      USE_KAFKA_CONSUMER_FLAG: "0"
+      ALERTS_CACHE_ENABLED: "true"
+      VITALS_CACHE_ENABLED: "true"
+      CENTRAL_HUB_VALIDATOR_ID: "CMS"
+      PATIENT_MONITOR_VALIDATOR_ID: "PM"
+    leader:
+      COORDINATOR_SERVER_ROLE: "LEADER"
+    follower:
+      COORDINATOR_SERVER_ROLE: "FOLLOWER"
+      HEALTH_CHECK_PORT: "8080"
+  extraEnvs:
+    - name: HOST_IP_ADDR
+      valueFrom:
+        fieldRef:
+          fieldPath: status.podIP
+    - name: KAFKA_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: kafka-user
+          key: user.password
+    - name: REDIS_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: redis-creds
+          key: REDIS_PASSWORD
+    - name: CRYPTO_USER_KEY_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: sdc-certs
+          key: CRYPTO_USER_KEY_PASSWORD
+    - name: JWT_PRIVATE_KEY
+      valueFrom:
+        secretKeyRef:
+          name: rsa-private-key
+          key: SECRET_RS256_KEY
+    - name: JWT_PUBLIC_KEY
+      valueFrom:
+        configMapKeyRef:
+          name: rsa-public-key
+          key: PUBLIC_RS256_KEY

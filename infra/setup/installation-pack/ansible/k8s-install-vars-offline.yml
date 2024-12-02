@@ -1,0 +1,77 @@
+rke2_version: v1.29.0+rke2r1
+rke2_architecture: amd64
+rke2_server_node_taints:
+  - 'CriticalAddonsOnly=true:NoExecute'
+# Uncomment the line below and specify the DNS name of the loadbalancer VM in case HA control plane for Kubernetes will be used
+# rke2_additional_sans:
+#   - "LB_K8S_API_FQDN"
+#   - "LB_INGRESS_IP"
+rke2_server_options:
+  - "audit-policy-file: /etc/rancher/rke2/audit-policy.yaml"
+rke2_custom_manifests:
+  - /install/k8s-infra/rke2-cilium-config.yaml
+rke2_cni:
+  - cilium
+rke2_disable:
+  - rke2-ingress-nginx
+  - rke2-canal
+rke2_artifact:
+  - sha256sum-{{ rke2_architecture }}.txt
+  - rke2.linux-{{ rke2_architecture }}.tar.gz
+  - rke2-images.linux-{{ rke2_architecture }}.tar.zst
+rke2_download_kubeconf: true
+rke2_download_kubeconf_file_name: kubeconfig
+rke2_download_kubeconf_path: /tmp/creds
+rke2_central_hub_tarballs_sourcepath: /install/images
+rke2_central_hub_tarballs:
+  - audit-trail-{{ central_hub_release }}.tar.gz
+  - authentication-{{ central_hub_release }}.tar.gz
+  - central-monitoring-{{ central_hub_release }}.tar.gz
+  - patient-{{ central_hub_release }}.tar.gz
+  - realtime-{{ central_hub_release }}.tar.gz
+  - sdc-{{ central_hub_release }}.tar.gz
+  - web-{{ central_hub_release }}.tar.gz
+  - mirth-{{ central_hub_release }}.tar.gz
+  - rkc-{{ central_hub_release }}.tar.gz
+  - config-{{ central_hub_release }}.tar.gz
+rke2_airgap_mode: true
+rke2_airgap_implementation: copy
+rke2_airgap_copy_sourcepath: /install/rke2/artifacts
+rke2_additional_tarballs_sourcepath: /install/images
+rke2_airgap_copy_additional_tarballs:
+  - busybox:latest.tar.gz
+  - controller:v1.11.1.tar.gz
+  - dashboard:v2.7.0.tar.gz
+  - hardened-cluster-autoscaler:v1.8.6-build20231009.tar.gz
+  - hardened-cni-plugins:v1.2.0-build20231009.tar.gz
+  - hardened-coredns:v1.10.1-build20231009.tar.gz
+  - hardened-etcd:v3.5.9-k3s1-build20230802.tar.gz
+  - hardened-k8s-metrics-server:v0.6.3-build20231009.tar.gz
+  - hardened-kubernetes:v1.29.0-rke2r1-build20231213.tar.gz
+  - kafka:0.42.0-kafka-3.7.1.tar.gz
+  - klipper-helm:v0.8.2-build20230815.tar.gz
+  - kubegres:1.16.tar.gz
+  - kube-rbac-proxy:v0.13.0.tar.gz
+  - kube-webhook-certgen:v1.4.1.tar.gz
+  - local-path-provisioner:v0.0.24.tar.gz
+  - mirrored-cilium-cilium:v1.14.4.tar.gz
+  - mirrored-cilium-operator-generic:v1.14.4.tar.gz
+  - mirrored-sig-storage-snapshot-controller:v6.2.1.tar.gz
+  - mirrored-sig-storage-snapshot-validation-webhook:v6.2.2.tar.gz
+  - operator:0.42.0.tar.gz
+  - postgres:14.12.tar.gz
+  - redis:6.2.14-bookworm.tar.gz
+  - rke2-cloud-provider:v1.28.2-build20231016.tar.gz
+  - metrics-scraper:v1.0.9.tar.gz
+  - prometheus-config-reloader:v0.75.2.tar.gz
+  - loki:2.9.3.tar.gz
+  - promtail:2.9.3.tar.gz
+  - k8s-sidecar:1.27.4.tar.gz
+  - grafana:11.1.4.tar.gz
+  - prometheus-operator:v0.75.2.tar.gz
+  - kube-state-metrics:v2.13.0.tar.gz
+  - prometheus:v2.54.0.tar.gz
+  - node-exporter:v1.8.2.tar.gz
+  - kube-webhook-certgen:v20221220-controller-v1.5.1-58-g787ea74b6.tar.gz
+  - alertmanager:v0.27.0.tar.gz
+  - custom-error-pages:v1.0.1.tar.gz

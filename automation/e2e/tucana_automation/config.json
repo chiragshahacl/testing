@@ -1,0 +1,19 @@
+{
+  "tucana_envs": [
+    {
+      "environment": "prod",
+      "url": "https://cms.tucana.sibel.health/",
+      "api": "https://api.tucana.sibel.health"
+    },
+    {
+      "environment": "qa",
+      "url": "https://cms.qa.tucana.sibel.health/",
+      "api": "https://api.qa.tucana.sibel.health"
+    },
+    {
+      "environment": "dev",
+      "url": "https://cms.dev.tucana.sibel.health/",
+      "api": "https://api.dev.tucana.sibel.health"
+    }
+  ]
+}

@@ -1,0 +1,123 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaUser
+metadata:
+  labels:
+    strimzi.io/cluster: kafka-cluster
+  name: kafka-user
+  namespace: tucana
+spec:
+  authentication:
+    type: tls
+  authorization:
+    acls:
+    - host: '*'
+      operations:
+      - Describe
+      - Read
+      - Create
+      - Write
+      resource:
+        name: waveform
+        patternType: literal
+        type: topic
+    - host: '*'
+      operations:
+      - Describe
+      - Read
+      - Create
+      - Write
+      resource:
+        name: audit-trail-stream
+        patternType: literal
+        type: topic
+    - host: '*'
+      operations:
+      - Describe
+      - Read
+      - Create
+      - Write
+      resource:
+        name: alerts
+        patternType: literal
+        type: topic
+    - host: '*'
+      operations:
+      - Describe
+      - Read
+      - Create
+      - Write
+      resource:
+        name: technical-alerts
+        patternType: literal
+        type: topic
+    - host: '*'
+      operations:
+      - Describe
+      - Read
+      - Create
+      - Write
+      resource:
+        name: vitals
+        patternType: literal
+        type: topic
+    - host: '*'
+      operations:
+      - Describe
+      - Read
+      - Create
+      - Write
+      resource:
+        name: events
+        patternType: prefix
+        type: topic
+    - host: '*'
+      operations:
+      - Describe
+      - Read
+      - Create
+      - Write
+      resource:
+        name: sdc-realtime-state
+        patternType: literal
+        type: topic
+    - host: '*'
+      operations:
+      - Describe
+      - Read
+      - Create
+      - Write
+      resource:
+        name: internal-audit-trail
+        patternType: literal
+        type: group
+    - host: '*'
+      operations:
+      - Describe
+      - Read
+      - Create
+      - Write
+      resource:
+        name: patient-consumer
+        patternType: literal
+        type: group
+    - host: '*'
+      operations:
+      - Describe
+      - Read
+      - Create
+      - Write
+      resource:
+        name: device-consumer
+        patternType: literal
+        type: group
+    - host: '*'
+      operations:
+      - Describe
+      - Read
+      - Create
+      - Write
+      resource:
+        name: upload-vitals-cron
+        patternType: literal
+        type: group
+    type: simple

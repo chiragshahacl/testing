@@ -1,0 +1,8 @@
+appId: central.monitoring.desktop.aimdek
+productName: CMSKiosk-aimdek
+directories:
+  output: dist/aimdek
+
+extraMetadata:
+  env: aimdek
+  APP_URL: https://cms.aimdek.tucana.sibel.health

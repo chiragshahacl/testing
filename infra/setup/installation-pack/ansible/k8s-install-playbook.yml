@@ -1,0 +1,5 @@
+- name: Deploy RKE2
+  hosts: all
+  become: yes
+  roles:
+    - role: "/install/rke2"

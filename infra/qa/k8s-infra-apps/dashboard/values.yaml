@@ -1,0 +1,31 @@
+# helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/
+# helm repo update
+# helm upgrade -i kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard -n dashboard  --create-namespace --version=6.0.6 -f infra/dev/k8s-infra-apps/dashboard/values.yaml
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+  paths:
+    - /
+  hosts:
+    - dashboard.qa.tucana.sibel.health
+  tls:
+    - secretName: dashboard-qa-tucana-sibel-health-tls
+      hosts:
+        - dashboard.qa.tucana.sibel.health
+
+metricsScraper:
+  enabled: true
+
+settings: 
+  ## Cluster name that appears in the browser window title if it is set
+  # clusterName: "tucana"
+  ## Max number of items that can be displayed on each list page
+  itemsPerPage: 20
+  ## Number of seconds between every auto-refresh of logs
+  logsAutoRefreshTimeInterval: 5
+  ## Number of seconds between every auto-refresh of every resource. Set 0 to disable
+  resourceAutoRefreshTimeInterval: 5
+  ## Hide all access denied warnings in the notification panel
+  # disableAccessDeniedNotifications: false

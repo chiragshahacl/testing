@@ -1,0 +1,131 @@
+replicaCount: 1
+
+image:
+  repository: 104472814609.dkr.ecr.us-east-2.amazonaws.com/audit-trail
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+  automountServiceAccountToken: false
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+securityContext:
+  capabilities:
+    drop:
+      - ALL
+  allowPrivilegeEscalation: false
+  seccompProfile:
+    type: RuntimeDefault
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 80
+  internalPort: 8080
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: gateway.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+
+  tls: []
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    memory: 256Mi
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 30
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 15
+  successThreshold: 3
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 1
+  targetCPUUtilizationPercentage: 90
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+app:
+  config:
+    GUNICORN_WORKERS: "2"
+    SENTRY_DSN: ""
+    SENTRY_TRACE_SAMPLE_RATE: "0.1"
+    SENTRY_PROFILES_SAMPLE_RATE: "0.1"
+    ENVIRONMENT: "prod"
+    APPLICATION_PORT: "8080"
+    BASE_PATH: "/audit-trail"
+    DB_HOST: "postgres"
+    DB_PORT: "5432"
+    DB_NAME: "audit_trail"
+    DB_USERNAME: "postgres"
+    MAX_REGISTRY_IN_DB: "1000"
+    DEVICE_EVENTS_TOPIC: "events-device"
+    PATIENT_EVENTS_TOPIC: "events-patient"
+    AUTH_EVENTS_TOPIC: "events-authentication"
+    CONSUMER_AUDIT_TRAIL_GROUP_ID: "internal-audit-trail"
+    KAFKA_CA_FILE_PATH: /kafka-cluster-certs/ca.crt
+    KAFKA_CERT_FILE_PATH: /kafka-user-certs/user.crt
+    KAFKA_KEY_FILE_PATH: /kafka-user-certs/user.key
+    KAFKA_HOST: "kafka-cluster-kafka-bootstrap"
+    KAFKA_PORT: "9093"
+    KAFKA_HEALTHCHECK_TOPIC: "healthcheck"
+  extraEnvs:
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: postgres-creds
+          key: superUserPassword
+    - name: JWT_VERIFYING_KEY
+      valueFrom:
+        configMapKeyRef:
+          name: rsa-public-key
+          key: PUBLIC_RS256_KEY
+    - name: KAFKA_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: kafka-user
+          key: user.password
+
+cron:
+  name: "max-number-of-rows"
+  schedule: "0 */3 * * *"
+  concurrencyPolicy: "Forbid"
+  backoffLimit: 5
+  activeDeadlineSeconds: 3600
+  restartPolicy: "OnFailure"
+  suspended: false

@@ -1,0 +1,12 @@
+---
+
+- name: Stop RKE2 service on {{ inventory_hostname }}
+  hosts: all
+  become: true
+  vars:
+    rke2_service_name: "rke2-{{ rke2_type }}.service"
+  tasks:
+    - name: Stop RKE2 service on {{ inventory_hostname }}
+      ansible.builtin.service:
+        name: "{{ rke2_service_name }}"
+        state: stopped

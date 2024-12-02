@@ -1,0 +1,7 @@
+BUILD_FILE_NAME = "build.sh"
+LIBRARIES_FOLDER_NAME = "libraries"
+SERVICES_FOLDER_NAME = "cloud"
+DEPLOY_FOLDER = "deploy"
+DEPENDENCIES_FILE_NAME = "pyproject.toml"
+TEMPLATES_FOLDER = "templates"
+INFRA_FOLDER = "infra"

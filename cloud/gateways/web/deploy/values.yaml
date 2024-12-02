@@ -1,0 +1,133 @@
+replicaCount: 2
+
+image:
+  repository: 104472814609.dkr.ecr.us-east-2.amazonaws.com/web
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+  automountServiceAccountToken: false
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+securityContext:
+  capabilities:
+    drop:
+      - ALL
+  allowPrivilegeEscalation: false
+  seccompProfile:
+    type: RuntimeDefault
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 80
+  internalPort: 8080
+
+ingress:
+  enabled: true
+  istio: false
+  className: "nginx"
+  hosts:
+    - host: api.${INGRESS_DOMAIN}
+      paths:
+        - path: /web
+          pathType: ImplementationSpecific
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    memory: 1024Mi
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 30
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 15
+  successThreshold: 3
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 2
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+app:
+  config:
+    LOG_LEVEL: "INFO"
+    LOGURU_LEVEL: "INFO"
+    GUNICORN_WORKERS: "2"
+    SENTRY_DSN: ""
+    SENTRY_TRACE_SAMPLE_RATE: "0.1"
+    SENTRY_PROFILES_SAMPLE_RATE: "0.1"
+    ENVIRONMENT: "prod"
+    APPLICATION_PORT: "8080"
+    BASE_PATH: "/web"
+    PM_STATE_TOPIC: "sdc-realtime-state"
+    PATIENT_PLATFORM_BASE_URL: "http://patient/patient"
+    AUDIT_PLATFORM_BASE_URL: "http://audit-trail/audit-trail"
+    AUTH_PLATFORM_BASE_URL: "http://authentication/api"
+    DEVICE_PLATFORM_BASE_URL: "http://patient/device"
+    EHR_PLATFORM_BASE_URL: "http://mirth:6662"
+    DEFAULT_ADMIN_USERNAME: "${ADMIN_EMAIL}"
+    DEFAULT_TECHNICAL_USER_USERNAME: "${TECHICAL_USER_MAIL}"
+    CORS_ORIGINS: "https://cms.${INGRESS_DOMAIN},http://localhost:3000"
+    PUBLISHER_BACKEND: "src.event_sourcing.publisher.KafkaPublisher"
+    PUBLISHER_DEVICE_COMMAND_STREAM_NAME: "device-commands-requests"
+    KAFKA_CA_FILE_PATH: /kafka-cluster-certs/ca.crt
+    KAFKA_CERT_FILE_PATH: /kafka-user-certs/user.crt
+    KAFKA_KEY_FILE_PATH: /kafka-user-certs/user.key
+    KAFKA_HOST: "kafka-cluster-kafka-bootstrap"
+    KAFKA_PORT: "9093"
+    KAFKA_RETRY_BACKOFF: "2000"
+    KAFKA_METADATA_MAX_AGE: "300000"
+    KAFKA_HEALTHCHECK_TOPIC: "healthcheck"
+    DEVICE_COMMAND_RESPONSE_TOPIC: "device-commands-responses"
+    REDIS_HOST: "redis"
+    REDIS_PORT: "6379"
+    REDIS_USERNAME: "default"
+    REDIS_CACHE_TTL: "86400"
+    PROJECT_NAME: "web"
+    PM_COMMAND_EXECUTION_ENABLED: "True"
+  extraEnvs:
+    - name: JWT_VERIFYING_KEY
+      valueFrom:
+        configMapKeyRef:
+          name: rsa-public-key
+          key: PUBLIC_RS256_KEY
+    - name: KAFKA_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: kafka-user
+          key: user.password
+    - name: REDIS_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: redis-creds
+          key: REDIS_PASSWORD

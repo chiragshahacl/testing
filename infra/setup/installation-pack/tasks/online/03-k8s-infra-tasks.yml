@@ -1,0 +1,13 @@
+# https://taskfile.dev
+version: '3'
+
+includes:
+  common-k8s-infra-deploy:
+    taskfile: ../common/k8s-infra-tasks.yml
+
+tasks:
+  deploy:
+    desc: Deploy infra components
+    internal: true
+    cmds:
+      - task: common-k8s-infra-deploy:deploy

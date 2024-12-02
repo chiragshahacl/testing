@@ -1,0 +1,144 @@
+# Permissions to read k8s secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kafka-s3-sink-connect-role
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  resourceNames: ["s3-vitals-creds"]
+  verbs: ["get"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kafka-s3-sink-connect-role-binding
+subjects:
+- kind: ServiceAccount
+  name: kafka-s3-sink-connect
+  namespace: tucana
+roleRef:
+  kind: Role
+  name: kafka-s3-sink-connect-role
+  apiGroup: rbac.authorization.k8s.io
+
+# KafkaConnect cluster
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnect
+metadata:
+  name: kafka-s3-sink
+  annotations:
+    strimzi.io/use-connector-resources: "true"
+spec:
+  image: 104472814609.dkr.ecr.us-east-2.amazonaws.com/kafka-connect-s3:10.5.6
+  replicas: 1
+  bootstrapServers: kafka-cluster-kafka-bootstrap:9093
+  tls:
+    trustedCertificates:
+      - secretName: kafka-cluster-cluster-ca-cert
+        certificate: ca.crt
+  authentication:
+    type: tls
+    certificateAndKey:
+      secretName: kafka-user-s3-sink
+      certificate: user.crt
+      key: user.key
+  config:
+    # explicit defaults
+    group.id: connect-cluster
+    offset.storage.topic: connect-cluster-offsets
+    config.storage.topic: connect-cluster-configs
+    status.storage.topic: connect-cluster-status
+    key.converter: org.apache.kafka.connect.converters.ByteArrayConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    # -1 means it will use the default replication factor configured in the broker
+    config.storage.replication.factor: -1
+    offset.storage.replication.factor: -1
+    status.storage.replication.factor: -1
+    # config provider for sensitiva data
+    config.providers: secrets
+    config.providers.secrets.class: io.strimzi.kafka.KubernetesSecretConfigProvider
+    key.converter.schemas.enable: false
+    value.converter.schemas.enable: false
+
+# KafkaUser use by KafkaConnect for S3 connector
+---
+apiVersion: kafka.strimzi.io/v1beta1
+kind: KafkaUser
+metadata:
+  name: kafka-user-s3-sink
+  labels:
+    strimzi.io/cluster: "kafka-cluster"
+spec:
+  authentication:
+    type: tls
+  authorization:
+    acls:
+    - host: '*'
+      operations:
+      - All
+      resource:
+        name: '*'
+        patternType: literal
+        type: topic
+    - host: '*'
+      operations:
+      - All
+      resource:
+        name: '*'
+        patternType: literal
+        type: transactionalId
+    - host: '*'
+      operations:
+      - All
+      resource:
+        name: '*'
+        patternType: literal
+        type: group
+    - host: '*'
+      operations:
+      - DescribeConfigs
+      resource:
+        type: cluster
+    type: simple
+
+# KafkaConnector for S3
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: kafka-s3-sink-connector
+  namespace: tucana
+  labels:
+    strimzi.io/cluster: "kafka-s3-sink"
+spec:
+  class: io.confluent.connect.s3.S3SinkConnector
+  tasksMax: 1
+  config:
+    topics: vitals
+    # S3
+    # https://docs.confluent.io/kafka-connectors/s3-sink/current/configuration_options.html#partitioner
+    s3.bucket.name: dev-vitals
+    s3.region: us-east-2
+    s3.compression.type: none
+    aws.access.key.id: ${secrets:tucana/s3-vitals-creds:AWS_ACCESS_KEY_ID}
+    aws.secret.access.key: ${secrets:tucana/s3-vitals-creds:AWS_SECRET_ACCESS_KEY}
+    # Connector
+    # https://docs.confluent.io/kafka-connectors/s3-sink/current/configuration_options.html#connector
+    flush.size: 99999999
+    rotate.schedule.interval.ms: 600000
+    format.class: io.confluent.connect.s3.format.json.JsonFormat
+    # Partitioner
+    # https://docs.confluent.io/kafka-connectors/s3-sink/current/configuration_options.html#partitioner
+    partitioner.class: io.confluent.connect.storage.partitioner.TimeBasedPartitioner
+    partition.duration.ms: 600000
+    locale: en-US
+    timezone: UTC
+    path.format: "YYYY-MM-dd/HH"
+    # Storage
+    # https://docs.confluent.io/kafka-connectors/s3-sink/current/configuration_options.html#storage
+    topics.dir: hospitals
+    storage.class: io.confluent.connect.s3.storage.S3Storage

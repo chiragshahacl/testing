@@ -1,0 +1,39 @@
+
+image:
+  repository: 620908046246.dkr.ecr.us-east-2.amazonaws.com/emulator
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets:
+  - name: ecr
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+  hosts:
+    - host: api.tucana.sibel.health
+      paths:
+        - path: /emulator
+          pathType: ImplementationSpecific
+  tls:
+    - secretName: api-tucana-sibel-health-tls
+      hosts:
+        - api.tucana.sibel.health
+
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 500m
+    memory: 256Mi
+
+
+app:
+  config:
+    ENVIRONMENT: "prod"
+    WEB_GATEWAY_URL: "https://api.tucana.sibel.health/web"
+    CORS_ORIGINS: "https://cms.tucana.sibel.health,http://localhost:3000"

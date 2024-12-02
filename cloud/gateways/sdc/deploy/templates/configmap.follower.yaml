@@ -1,0 +1,13 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: {{ include "deploy.fullname" . }}-follower
+  labels:
+    {{- include "deploy.labels" . | nindent 4 }}
+data:
+  {{- with .Values.app.config.all -}}
+  {{ toYaml . | nindent 2 }}
+  {{- end }}
+  {{- with .Values.app.config.follower -}}
+  {{ toYaml . | nindent 2 }}
+  {{- end }}

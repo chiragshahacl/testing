@@ -1,0 +1,79 @@
+# https://taskfile.dev
+version: '3'
+
+vars:
+  CREDS_DIR: '/tmp/creds'
+
+tasks:
+
+  prepare-loki-creds:
+    desc: Prepare credentials for Loki
+    internal: true
+    cmds:
+      - mkdir -p {{.CREDS_DIR}}
+      - >
+        if [ ! -f {{.CREDS_DIR}}/loki.txt ]; then
+          echo "Creating new creds for loki..."
+          LOKI_PASSWORD=$(tr -dc A-Za-z0-9 </dev/urandom | head -c 30)
+          echo "LOKI_PASSWORD = ${LOKI_PASSWORD}" > {{.CREDS_DIR}}/loki.txt
+        else
+          echo "Credentials for loki already exist, re-using it..."
+        fi;
+        LOKI_PASSWORD=$(cat {{.CREDS_DIR}}/loki.txt | grep LOKI_PASSWORD | cut -d'=' -f2 | xargs);
+        mkpasswd -m sha-512 ${LOKI_PASSWORD} > haproxy/loki-hash-password
+
+  prepare-promtail-conf:
+    desc: Prepare config for Promtail on Load Balancer
+    internal: true
+    cmds:
+      - |
+        export INGRESS_DOMAIN="{{.LB_INGRESS_DOMAIN}}";
+        envsubst < haproxy/promtail.yml > haproxy/promtail.yml.tmp && mv haproxy/promtail.yml.tmp haproxy/promtail.yml
+
+  generate-balancer-config:
+    desc: Generate HAproxy configuration
+    internal: true
+    cmds:
+      - |
+        export K8S_CLUSTER_CONTROL_HOSTS="{{.K8S_CLUSTER_CONTROL_HOSTS}}";
+        export K8S_CLUSTER_IPS="{{.K8S_CLUSTER_IPS}}";
+        export LOKI_PASSWORD_HASH=$(cat haproxy/loki-hash-password);
+        python3 scripts/haproxy_config.py
+
+  prepare-balancer-certificate:
+    desc: Prepare certificate for Mirth
+    internal: true
+    cmds:
+      - >
+        if [[ -f "/tmp/{{.LB_INGRESS_CERT_PRIVATE_KEY}}" && -f "/tmp/{{.LB_INGRESS_CERT_PUBLIC_KEY}}" ]]; then
+          rm -f /tmp/tls.pem
+          for cert in /tmp/{{.LB_INGRESS_CERT_PRIVATE_KEY}} /tmp/{{.LB_INGRESS_CERT_PUBLIC_KEY}}; do
+              cat "$cert" >> /tmp/tls.pem
+              echo "" >> /tmp/tls.pem
+          done
+        fi
+
+  setup-load-balancer:
+    desc: Setup ingress load balancer
+    internal: true
+    cmds:
+      - cat {{.CREDS_DIR}}/loki.txt | grep LOKI_PASSWORD | cut -d'=' -f2 | xargs > haproxy/loki-password
+      - ssh -i /tmp/{{.PRIVATE_KEY_NAME}} -o StrictHostKeyChecking=no {{.SSH_USER}}@{{.LB_INGRESS_IP}} "mkdir -p haproxy/{conf,certs}"
+      - scp -i /tmp/{{.PRIVATE_KEY_NAME}} -o StrictHostKeyChecking=no haproxy/combined-haproxy.cfg {{.SSH_USER}}@{{.LB_INGRESS_IP}}:haproxy/conf/haproxy.cfg
+      - scp -i /tmp/{{.PRIVATE_KEY_NAME}} -o StrictHostKeyChecking=no haproxy/promtail.yml {{.SSH_USER}}@{{.LB_INGRESS_IP}}:haproxy/conf/promtail.yml
+      - scp -i /tmp/{{.PRIVATE_KEY_NAME}} -o StrictHostKeyChecking=no haproxy/loki-password {{.SSH_USER}}@{{.LB_INGRESS_IP}}:haproxy/conf/loki-password
+      - scp -i /tmp/{{.PRIVATE_KEY_NAME}} -o StrictHostKeyChecking=no haproxy/combined-docker-compose.yaml {{.SSH_USER}}@{{.LB_INGRESS_IP}}:haproxy/docker-compose.yaml
+      - scp -i /tmp/{{.PRIVATE_KEY_NAME}} -o StrictHostKeyChecking=no /tmp/tls.pem {{.SSH_USER}}@{{.LB_INGRESS_IP}}:haproxy/certs/tls.pem
+      - ssh -i /tmp/{{.PRIVATE_KEY_NAME}} -o StrictHostKeyChecking=no {{.SSH_USER}}@{{.LB_INGRESS_IP}} "sudo service docker restart"
+      - ssh -i /tmp/{{.PRIVATE_KEY_NAME}} -o StrictHostKeyChecking=no {{.SSH_USER}}@{{.LB_INGRESS_IP}} "sudo docker compose --file haproxy/docker-compose.yaml down"
+      - ssh -i /tmp/{{.PRIVATE_KEY_NAME}} -o StrictHostKeyChecking=no {{.SSH_USER}}@{{.LB_INGRESS_IP}} "sudo docker compose --file haproxy/docker-compose.yaml up -d"
+
+  deploy:
+    desc: Setup load balancer
+    internal: true
+    cmds:
+      - task: prepare-loki-creds
+      - task: prepare-promtail-conf
+      - task: generate-balancer-config
+      - task: prepare-balancer-certificate
+      - task: setup-load-balancer

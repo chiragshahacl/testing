@@ -1,0 +1,17 @@
+image:
+  repository: 678674662538.dkr.ecr.us-east-2.amazonaws.com/authentication
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets:
+  - name: ecr
+
+app:
+  config:
+    ENVIRONMENT: "qa"
+    BRUTE_FORCE_ATTEMPT_TTL: "180"
+    BRUTE_FORCE_PROTECTION_ENABLED: "FALSE"
+    DJANGO_SUPERUSER_EMAIL: "admin@sibelhealth.com"
+    DJANGO_SUPERUSER_USERNAME: "admin@sibelhealth.com"
+    ADMIN_EMAIL: "admin@sibelhealth.com"
+    ACCESS_TOKEN_LIFETIME_IN_MINUTES: "240"

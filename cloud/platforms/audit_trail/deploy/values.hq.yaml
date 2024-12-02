@@ -1,0 +1,13 @@
+image:
+  # dev registry for now
+  repository: 104472814609.dkr.ecr.us-east-2.amazonaws.com/audit-trail
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets:
+  - name: ecr
+
+app:
+  config:
+    ENVIRONMENT: "hq"
+    SENTRY_DSN: "https://4d08e09bcd1b494bbe064ecabd9c3160@o4504039729135616.ingest.sentry.io/4505052165373952"
