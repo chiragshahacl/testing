@@ -24,9 +24,10 @@ jobs:
         run: |
           if ! command -v trivy &> /dev/null; then
             echo "Trivy is not installed, installing now..."
-            sudo apt-get update && sudo apt-get install -y wget
-            wget https://github.com/aquasecurity/trivy/releases/download/v0.45.0/trivy_0.45.0_Linux-x86_64.deb
-            sudo dpkg -i trivy_0.45.0_Linux-x86_64.deb
+            # Install Trivy by downloading the latest version
+            wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy_0.45.0_Linux-x86_64.deb -O trivy.deb
+            sudo dpkg -i trivy.deb
+            sudo apt-get install -f  # Fix any missing dependencies
           else
             echo "Trivy is already installed"
           fi
