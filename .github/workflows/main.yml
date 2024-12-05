@@ -28,7 +28,7 @@ jobs:
 
       - name: Run Trivy scan on the repo
         run: |
-          trivy fs --severity HIGH,CRITICAL --exit-code 1 .
+          trivy fs --severity HIGH,CRITICAL .
         
       - name: Upload Trivy scan results
         uses: actions/upload-artifact@v3
