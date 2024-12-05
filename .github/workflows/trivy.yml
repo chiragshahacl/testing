@@ -1,0 +1,18 @@
+stages:
+  - scan
+
+variables:
+  TRIVY_CACHE_DIR: "/tmp/.trivy-cache"
+
+trivy_scan:
+  stage: scan
+  image: aquasec/trivy:latest
+  script:
+    # 1. Update the Trivy database (optional but recommended)
+    - trivy --cache-dir $TRIVY_CACHE_DIR fs .  # Scans the entire repo for vulnerabilities
+  allow_failure: false   # Fail the pipeline if vulnerabilities are found
+  artifacts:
+    paths:
+      - trivy-report.json  # Save the report as an artifact
+    reports:
+      dependency_scanning: trivy-report.json  # Use GitLab's built-in report type
