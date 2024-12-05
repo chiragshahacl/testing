@@ -1,0 +1,28 @@
+name: Trivy Scan Workflow
+
+on:
+  workflow_dispatch: # Allows you to manually trigger the workflow
+
+jobs:
+  trivy_scan:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+
+    - name: Check if Trivy is Installed
+      run: |
+        if ! command -v trivy &> /dev/null; then
+          echo "Trivy not found. Installing..."
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/scripts/install.sh | sh
+        else
+          echo "Trivy is already installed."
+        fi
+
+    - name: Run Trivy Scan on Repository
+      env:
+        TRIVY_CACHE_DIR: /tmp/.cache/trivy # Caching directory for Trivy
+      run: |
+        echo "Running Trivy scan on the repository..."
+        trivy fs . --exit-code 1 --severity HIGH,CRITICAL
