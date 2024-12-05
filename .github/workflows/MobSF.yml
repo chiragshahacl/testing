@@ -5,7 +5,7 @@ on:
 
 jobs:
   mobsf-scan:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
 
     steps:
       # Step 1: Check out the code from the repository
@@ -18,17 +18,17 @@ jobs:
         with:
           python-version: 3.8  # Specify the Python version as required
 
-      # Step 3: Install dependencies manually (since 'requirements.txt' is missing)
+      # Step 3: Install Poetry
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          export PATH="$HOME/.poetry/bin:$PATH"
+
+      # Step 4: Install MobSF dependencies with Poetry
       - name: Install MobSF dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y git python3-dev python3-pip python3-setuptools libssl-dev libffi-dev
-          pip install django  # Install Django (since MobSF uses it)
-          pip install -r Mobile-Security-Framework-MobSF/requirements.txt  # If available in the repo
-
-      # Step 4: Clone MobSF repository
-      - name: Clone MobSF repository
-        run: git clone https://github.com/MobSF/Mobile-Security-Framework-MobSF.git
+          cd Mobile-Security-Framework-MobSF
+          poetry install  # Install all dependencies (including Django)
 
       # Step 5: Run MobSF Static Code Analysis
       - name: Run MobSF Static Code Analysis
