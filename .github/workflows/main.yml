@@ -9,30 +9,19 @@ on:
     branches:
       - main
       - develop
-  workflow_dispatch:
+  workflow_dispatch:  # This allows manual triggering from the GitHub Actions UI
 
 jobs:
-  scan:
+  trivy_scan:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - name: Checkout the repository
+        uses: actions/checkout@v2
 
-      - name: Check if Trivy is installed
-        id: check_trivy
-        run: |
-          if ! command -v trivy &> /dev/null; then
-            echo "Trivy is not installed, installing now..."
-            # Install Trivy by downloading the latest version
-            wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy_0.45.0_Linux-x86_64.deb -O trivy.deb
-            sudo dpkg -i trivy.deb
-            sudo apt-get install -f  # Fix any missing dependencies
-          else
-            echo "Trivy is already installed"
-          fi
+      - name: Set up Trivy
+        uses: aquasecurity/trivy-action@v0.0.17
 
       - name: Run Trivy scan
         run: |
-          echo "Running Trivy scan on the repository..."
-          trivy fs --exit-code 1 --severity HIGH,CRITICAL --ignore-unfixed .
+          trivy fs --severity HIGH,CRITICAL --exit-code 1 --no-progress --ignore-unfixed .
