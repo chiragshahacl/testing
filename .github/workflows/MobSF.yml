@@ -1,0 +1,54 @@
+name: MobSF Static Code Scan
+
+on:
+  workflow_dispatch:  # This will allow you to manually trigger the workflow from GitHub UI
+
+jobs:
+  mobsf-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Check out the code from the repository
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      # Step 2: Set up Python (required for MobSF)
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8  # Specify the Python version as required
+
+      # Step 3: Install MobSF dependencies
+      - name: Install MobSF dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git python3-dev python3-pip python3-setuptools libssl-dev libffi-dev
+          pip install -r requirements.txt
+
+      # Step 4: Clone MobSF repository
+      - name: Clone MobSF repository
+        run: git clone https://github.com/MobSF/Mobile-Security-Framework-MobSF.git
+
+      # Step 5: Run MobSF Static Code Analysis
+      - name: Run MobSF Static Code Analysis
+        run: |
+          cd Mobile-Security-Framework-MobSF
+          python3 manage.py runserver &
+          sleep 10  # Wait for the server to start
+          
+          # Upload the entire repository directory for static analysis and capture the scan_id
+          response=$(curl -X POST -F "file=@." http://127.0.0.1:8000/api/v1/upload/)
+          
+          # Extract the scan_id from the response JSON
+          scan_id=$(echo $response | jq -r '.scan_id')
+
+          # If scan_id is not empty, retrieve the scan results
+          if [ -n "$scan_id" ]; then
+            echo "Scan ID: $scan_id"
+            sleep 20  # Wait for the scan to finish
+            # Fetch and display the scan results
+            curl "http://127.0.0.1:8000/api/v1/get_results/?scan_id=$scan_id"
+          else
+            echo "Error: Scan ID not found"
+            exit 1
+          fi
